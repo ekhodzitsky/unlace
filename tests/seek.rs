@@ -407,6 +407,8 @@ struct State {
     revision: u128,
     available: usize,
     hole: Option<(usize, usize)>,
+    fault: Option<usize>,
+    fault_used: bool,
     chunk: usize,
     calls: u64,
     interrupt: bool,
@@ -423,6 +425,8 @@ impl Ranges {
             revision: 1,
             available,
             hole: None,
+            fault: None,
+            fault_used: false,
             chunk: usize::MAX,
             calls: 0,
             interrupt: false,
@@ -453,6 +457,15 @@ impl ReadAt for Ranges {
             return Err(io::ErrorKind::WouldBlock.into());
         }
         let mut len = bytes.len().min(s.available - offset).min(s.chunk);
+        if let Some(fault) = s.fault {
+            if offset == fault {
+                s.fault_used = true;
+                return Err(io::Error::other("injected positional source error"));
+            }
+            if offset < fault {
+                len = len.min(fault - offset);
+            }
+        }
         if let Some((start, end)) = s.hole {
             if offset >= start && offset < end {
                 return Err(io::ErrorKind::WouldBlock.into());
@@ -901,4 +914,194 @@ fn fallback_does_not_reclassify_missing_cluster_timestamp_as_no_access_point() {
             ..
         })
     ));
+}
+
+#[test]
+fn source_errors_at_every_prepare_byte_have_deterministic_failure_or_retry_scope() {
+    let f = fixture_options(false, Some(2), 1, 32);
+    let cancel = AtomicBool::new(false);
+    for fault in 0..f.bytes.len() {
+        let source = Ranges::new(f.bytes.clone());
+        source.0.borrow_mut().fault = Some(fault);
+        let mut reader = ranged(source.clone(), SeekLimits::default());
+        match prepare(&mut reader, &cancel) {
+            Ok(()) => assert!(!source.0.borrow().fault_used),
+            Err(SeekError::Source(SourceError::Io {
+                offset: Some(offset),
+                error,
+            })) => {
+                assert_eq!(offset, fault as u64);
+                assert_eq!(error.kind(), io::ErrorKind::Other);
+                assert!(source.0.borrow().fault_used);
+                assert!(reader.read_report().calls <= SeekLimits::default().read.max_calls);
+                source.0.borrow_mut().fault = None;
+                if (fault as u64) < f.clusters[0] {
+                    let calls = source.0.borrow().calls;
+                    assert!(matches!(reader.prepare(&cancel), Err(SeekError::Failed)));
+                    assert_eq!(source.0.borrow().calls, calls);
+                } else {
+                    // Index reads are positional transactions; retrying never
+                    // imports new metadata or changes an active packet cursor.
+                    prepare(&mut reader, &cancel).unwrap();
+                    assert_eq!(
+                        reader
+                            .seek(
+                                SeekRequest {
+                                    timestamp_ns: 180_000,
+                                    preroll_ns: 0
+                                },
+                                &cancel
+                            )
+                            .unwrap()
+                            .cluster_offset,
+                        f.clusters[0]
+                    );
+                }
+            }
+            Err(error) => panic!("fault {fault}: {error}"),
+        }
+    }
+}
+
+#[test]
+fn source_errors_at_every_suffix_byte_preserve_location_and_terminal_packet_state() {
+    let f = fixture_options(false, Some(2), 1, 32);
+    let cancel = AtomicBool::new(false);
+    for fault in f.clusters[0] as usize..f.bytes.len() {
+        let source = Ranges::new(f.bytes.clone());
+        let mut reader = ranged(source.clone(), SeekLimits::default());
+        prepare(&mut reader, &cancel).unwrap();
+        reader
+            .seek(
+                SeekRequest {
+                    timestamp_ns: 180_000,
+                    preroll_ns: 0,
+                },
+                &cancel,
+            )
+            .unwrap();
+        source.0.borrow_mut().fault = Some(fault);
+        loop {
+            match reader.poll(&cancel) {
+                Ok(SeekEvent::Packet(_) | SeekEvent::Yield) => (),
+                Ok(SeekEvent::End(_)) => panic!("source error at {fault} became successful End"),
+                Err(SeekError::Source(SourceError::Io {
+                    offset: Some(offset),
+                    error,
+                })) => {
+                    assert_eq!(offset, fault as u64);
+                    assert_eq!(error.kind(), io::ErrorKind::Other);
+                    let calls = source.0.borrow().calls;
+                    assert!(matches!(reader.poll(&cancel), Err(SeekError::Failed)));
+                    assert_eq!(source.0.borrow().calls, calls);
+                    break;
+                }
+                Err(error) => panic!("fault {fault}: {error}"),
+            }
+        }
+    }
+}
+
+#[test]
+fn wide_before_first_cue_scan_reports_read_limit_and_preserves_active_suffix() {
+    let f = fixture_options(false, None, 1, 32);
+    let data_offset = (f.clusters[0] - f.cue_positions[0]) as usize;
+    let segment_at = f
+        .bytes
+        .windows(4)
+        .position(|b| b == [0x18, 0x53, 0x80, 0x67])
+        .unwrap();
+    let mut segment = f.bytes[data_offset..f.clusters[0] as usize].to_vec();
+    let first_relative = segment.len() as u64;
+    // Five Clusters are the smallest count for this fixture and 50-call
+    // allowance: four complete the fallback scan without a refusal.
+    for i in 0..5 {
+        let mut cluster = f.bytes[f.clusters[0] as usize..f.clusters[1] as usize].to_vec();
+        change(&mut cluster, 0xe7, 100, i * 100);
+        segment.extend(cluster);
+    }
+    let mut position = number(0xf7, 2);
+    position.extend(number(0xf1, first_relative));
+    position.extend(number(0xf0, f.relative));
+    let mut point = number(0xb3, 0);
+    point.extend(element(0xb7, &position));
+    segment.extend(element(0x1c53bb6b, &element(0xbb, &point)));
+    let mut bytes = f.bytes[..segment_at].to_vec();
+    bytes.extend(element(0x18538067, &segment));
+    let expected = sequential(&bytes);
+    let cancel = AtomicBool::new(false);
+    let source = Ranges::new(bytes);
+    let mut reader = ranged(
+        source,
+        SeekLimits {
+            read: unlace::source::ReadLimits {
+                max_calls: 50,
+                ..Default::default()
+            },
+            ..SeekLimits::default()
+        },
+    );
+    loop {
+        match reader.prepare(&cancel) {
+            Ok(Preparation::Ready) => break,
+            Ok(Preparation::Yield) => (),
+            Err(SeekError::Source(SourceError::Limit)) => {
+                assert_eq!(reader.read_report().calls, 50)
+            }
+            Err(error) => panic!("{error}"),
+        }
+    }
+    let first = reader
+        .seek(
+            SeekRequest {
+                timestamp_ns: 80_000,
+                preroll_ns: 0,
+            },
+            &cancel,
+        )
+        .unwrap();
+    let mut actual = Vec::new();
+    while actual.len() < 2 {
+        match reader.poll(&cancel) {
+            Ok(SeekEvent::Packet(p)) => actual.push(packet(p)),
+            Ok(SeekEvent::Yield) | Err(SeekError::Source(SourceError::Limit)) => (),
+            _ => panic!("could not retain a pending laced packet"),
+        }
+    }
+    assert_eq!(actual[1].lace, (0, 2));
+    assert!(matches!(
+        reader.seek(
+            SeekRequest {
+                timestamp_ns: 0,
+                preroll_ns: 0
+            },
+            &cancel
+        ),
+        Err(SeekError::Source(SourceError::Limit))
+    ));
+    assert_eq!(reader.read_report().calls, 50);
+    match reader.poll(&cancel).unwrap() {
+        SeekEvent::Packet(p) => {
+            let p = packet(p);
+            assert_eq!(p.lace, (1, 2));
+            actual.push(p);
+        }
+        _ => panic!("pending laced packet was lost"),
+    }
+    assert_eq!(reader.read_report().calls, 0);
+    loop {
+        match reader.poll(&cancel) {
+            Ok(SeekEvent::Packet(p)) => actual.push(packet(p)),
+            Ok(SeekEvent::Yield) => (),
+            Ok(SeekEvent::End(end)) => {
+                assert_eq!(end.from_cluster_offset, first.cluster_offset);
+                break;
+            }
+            Err(SeekError::Source(SourceError::Limit)) => {
+                assert_eq!(reader.read_report().calls, 50)
+            }
+            Err(error) => panic!("{error}"),
+        }
+    }
+    assert_eq!(actual, expected);
 }

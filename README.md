@@ -82,7 +82,10 @@ short/interrupted reads, continuation at every byte position, unknown-size
 termination, malformed boundaries and explicit resource limits. These results do
 not qualify complete WebM parsing.
 
-There are no representative container benchmarks or coverage measurements yet.
+There are no matched container performance benchmarks yet. Compiler source-region
+coverage for bounded optional fuzz targets and six-hour completeness evidence are
+recorded in [robustness qualification](docs/robustness.md); this is not branch
+coverage or a safety proof.
 The [qualification protocol](docs/qualification.md) defines equivalent-work
 checks required before performance comparisons. No numerical advantage is claimed.
 
@@ -97,8 +100,8 @@ performance trials remain unfinished. It does not decode Opus,
 fetch URLs or recognize speech.
 The repository is private, package publication is disabled, hosted Actions are
 disabled and no release artifact is published. A distribution license has not
-been selected. Downloads, docs.rs and CI badges therefore do not apply; coverage
-and end-to-end benchmarks remain unmeasured.
+been selected. Downloads, docs.rs and CI badges therefore do not apply; ordinary
+test-suite coverage and matched performance benchmarks remain unmeasured.
 
 ## Development
 

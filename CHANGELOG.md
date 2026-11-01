@@ -4,6 +4,13 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Add optional dependency-free coverage-guided fuzz tools with original synthetic
+  seeds, bounded input processes, retained findings and a bounded reducer. Record
+  exact scope/coverage and 39,000 mutations without treating success as safety.
+- Extend every-byte positional I/O and work-refusal regressions. Qualify all
+  1,080,001 packets and exact timeline/final trim of an original six-hour Opus
+  container; retain the default before-first-cue seek budget refusal explicitly.
+
 - Add separate selected-audio seeking over immutable positional sources: attest
   real Segment/Cluster boundaries, parse bounded Cues/SeekHead and verify used
   cue destinations against actual selected-track blocks before restarting.

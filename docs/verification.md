@@ -140,3 +140,19 @@ warning-free rustdoc and zero third-party dependencies. The final file seek
 example was built and exercised on the completed YouTube source. All 32 local
 suffix/window comparisons passed again against the final library, with unchanged
 provider-read counters.
+
+The [robustness qualification](robustness.md) adds optional coverage-guided fuzz
+tools, 39,000 mutations with bounded process/oracle scope, library-only source
+region coverage, every-byte positional I/O errors and a minimized work-refusal
+shape. An original six-hour Opus container matches 1,080,001 selected packets with
+two independent demuxers, exact generated timestamp sequence and final trim/EOF.
+The default early seek read-budget refusal remains explicit; a larger documented
+allowance permits matched forward/backward suffix and one-second-window checks.
+These are correctness/coverage observations, not performance or safety claims.
+
+Final robustness gates passed on Rust 1.89.0: 108 integration tests and four
+doctests in debug/release, strict all-target Clippy, fmt, warning-free rustdoc
+and the zero-dependency check. Optional fuzz tools also passed Rust formatting,
+Python byte compilation/CLI checks, warning-free standalone test compilation,
+retained-corpus replay, dense-lace cases and reducer self-check. No production
+API, Cargo version or runtime dependency changed in this qualification slice.
