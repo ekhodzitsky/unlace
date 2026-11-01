@@ -1,0 +1,20 @@
+[package]
+name = "unlace"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "Bounded streaming WebM and Matroska parsing in pure Rust (early development)"
+publish = false
+repository = "https://github.com/ekhodzitsky/unlace"
+readme = "README.md"
+keywords = ["webm", "matroska", "ebml", "demuxer", "streaming"]
+categories = ["multimedia", "parsing"]
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+missing_docs = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
