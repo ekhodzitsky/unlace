@@ -1,5 +1,10 @@
 # Verification boundary
 
+The sections below retain evidence from successive source milestones. The
+[current objective audit](objective-audit.md) maps the completed original work
+to present contracts and scoped results; early unfinished statements describe
+their historical stage, not a substitute for the later reports.
+
 The first source milestone uses Rust 1.89.0, safe Rust and no third-party Cargo
 dependencies. The pinned toolchain is the minimum version used for local checks.
 The integer example parses an EBML ID and an unknown size; the unreleased
@@ -193,3 +198,10 @@ exercise 96 writer configurations in both modes. Source replay verifies the
 qualified output identities. Cargo stays unpublished 0.1.0; the new configuration/
 receipt fields and default buffering join the pending incompatible minor source
 milestone described in the migration notes. No release/tag/publication is implied.
+
+The final objective audit adds pinned source/test/behavior studies for the other
+named implementations and own English/Russian/German packet/PCM corpus checks.
+The continuation example pauses after at most 17 bytes and resumes the same
+reader; speech and selected mixed-track runs match the original packet/byte
+counts and require finite End. No production library or Cargo API/version changed
+in this audit slice. The full local verification gates pass again with Rust 1.89.

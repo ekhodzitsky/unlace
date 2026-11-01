@@ -50,6 +50,7 @@ splitting for all lacing modes. For integrated sequential audio, run:
 ```sh
 cargo run --offline --locked --example audio_packets -- INPUT.webm
 cargo run --offline --locked --example audio_packets -- INPUT.webm 2
+cargo run --offline --locked --example continue_audio -- INPUT.webm
 ```
 
 The [demuxing contract](docs/demuxing.md) defines supported elements, borrowed
@@ -118,6 +119,10 @@ selected packet bytes with two independent demuxers. The
 [Opus timing contract](docs/opus-timing.md) includes independently checked
 mono/stereo start/end trimming. Broader decoded-audio coverage remains unfinished. It does not decode Opus,
 fetch URLs or recognize speech.
+The [objective audit](docs/objective-audit.md) maps the original requirements to
+source, tests and scoped evidence, including the additional
+[implementation studies](docs/implementation-studies.md) and
+[speech corpus](docs/speech-qualification.md).
 The repository is private, package publication is disabled, hosted Actions are
 disabled and no release artifact is published. A distribution license has not
 been selected. Downloads, docs.rs and CI badges therefore do not apply; ordinary

@@ -133,3 +133,13 @@ for a sequential file example. It emits JSON Lines with track metadata, packet
 hex/timestamps/padding and a final completion event. Failure exits nonzero and
 emits no successful final event. This verbose correctness manifest is not a
 throughput benchmark.
+
+## Continuation example
+
+Run `cargo run --offline --locked --example continue_audio -- INPUT.webm [TRACK_NUMBER]`
+to simulate a producer pause after each read of at most 17 bytes. The source
+returns WouldBlock while paused and zero only at final EOF. The consumer resumes
+the same owned demuxer after NeedInput, handles Yield separately, processes each
+borrowed packet before the next poll and requires End. The example retains no
+packet result history; its counters do not substitute for the reported completion
+kind. Real applications wait for producer availability outside the library.

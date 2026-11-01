@@ -4,6 +4,10 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Add a tiny-chunk continuation example, pinned supplemental implementation
+  studies, own multilingual speech packet/PCM checks and a requirement audit.
+  Preserve explicit unsupported/failure observations and existing benchmark scope.
+
 - Add initial encoded WebM writing with separate live and indexed output, all
   lacing modes, exact clock/delay/trim preservation, bounded fallible state and
   explicit finish receipts. Poison partial I/O and retain failure stage/cause;

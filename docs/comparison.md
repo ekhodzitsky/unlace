@@ -1,7 +1,8 @@
 # Competitor evidence and selection
 
 Reviewed 2026-11-01 from primary documentation and selected APIs. This review
-is supplemented by [pinned execution measurements](matched-comparison.md), with
+is supplemented by [pinned source/test/behavior studies](implementation-studies.md)
+and [execution measurements](matched-comparison.md), with
 separate classic/incremental libwebm variants and explicit metadata gates. Neither
 report is a complete security audit. The source pins in that report identify
 the tested revisions independently of changing repository branches.
