@@ -50,6 +50,7 @@ pub(super) const ENTRIES: &[ElementSpec] = &[
     entry(0x9c, 0xae, META),                // FlagLacing
     entry(0x23e383, 0xae, META),            // DefaultDuration
     entry(0x23314f, 0xae, META),            // TrackTimestampScale
+    entry(0x55ee, 0xae, META),              // MaxBlockAdditionID declaration
     entry(0x537f, 0xae, META),              // TrackOffset
     entry(0x86, 0xae, META),                // CodecID
     entry(0x63a2, 0xae, META),              // CodecPrivate
@@ -80,7 +81,7 @@ pub(super) const ENTRIES: &[ElementSpec] = &[
     entry(0x75a2, 0xa0, META),              // DiscardPadding
     entry(0xfa, 0xa0, META),                // ReferencePriority
     entry(0xa4, 0xa0, META),                // CodecState: unsupported
-    entry(0x75a1, 0xa0, META),              // BlockAdditions: unsupported
+    entry(0x75a1, 0xa0, SKIP),              // Opaque until the group's track is known
     entry(0x1c53bb6b, 0x18538067, SKIP),    // Cues
     entry(0x1254c367, 0x18538067, SKIP),    // Tags
     entry(0x1043a770, 0x18538067, SKIP),    // Chapters

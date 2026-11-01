@@ -82,8 +82,9 @@ checks required before performance comparisons. No numerical advantage is claime
 
 Unlace does not yet seek or write containers. The sequential reader explicitly
 rejects unsupported transformations, CRC-32 and several general Matroska features.
-Real MediaRecorder/YouTube packet equivalence, independent decoded trim checks
-and matched performance trials remain unfinished. It does not decode Opus,
+The pinned [MediaRecorder/YouTube corpus](docs/packet-qualification.md) matches
+selected packet bytes with two independent demuxers. Independent decoded trim
+checks and matched performance trials remain unfinished. It does not decode Opus,
 fetch URLs or recognize speech.
 The repository is private, package publication is disabled, hosted Actions are
 disabled and no release artifact is published. A distribution license has not

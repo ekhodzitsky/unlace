@@ -35,8 +35,8 @@ boundaries, schema validation, unknown-size termination, opaque skipping, width
 and resource limits, all 64 stack slots, and 100,000 successive root elements.
 A deterministic 12,800-input random smoke test exercises parser entry states; it
 is not sustained coverage-guided fuzzing or evidence of whole-container safety.
-No competitor, media corpus, decoded trimming or performance qualification has
-been completed. See [streaming.md](streaming.md) for the exact core contract.
+Full media-corpus, decoded trimming and performance qualification remain
+uncompleted; the selected-packet evidence below has a narrower explicit scope. See [streaming.md](streaming.md) for the exact core contract.
 
 Ten additional block tests cover all four lacing modes, independent RFC wire
 examples, original borrowed bytes and order, all track VINT widths, signed
@@ -46,10 +46,10 @@ encoded frame vectors for counts 2 through 256. Exhaustive 65,536 flag/count pai
 and 12,800 deterministic random inputs exercise additional bounded cases. These
 are structural tests; they do not qualify codec payloads or audio completeness.
 The block example in rustdoc is executable. Container-level demux is exercised
-below; independent comparison on real MediaRecorder/YouTube corpora remains
-unverified.
+below; the pinned MediaRecorder/YouTube selected-packet comparison is described in
+[packet-qualification.md](packet-qualification.md).
 
-Sixteen sequential demux tests cover original packet bytes/order/track identity,
+Twenty-one sequential demux tests cover original packet bytes/order/track identity,
 all lacing modes, signed timestamps and overflow, default-valued empty elements,
 late BlockGroup trim/reference/duration fields, every finite-fixture truncation,
 every-byte WouldBlock/Interrupted/source errors, declared widths, duplicates,
@@ -64,12 +64,23 @@ match ordered packet SHA-256 and CodecPrivate on three generated files: Opus
 unknown-size completion uncertainty. The same ordered packet SHA-256 values also
 match Mozilla Nestegg commit `767aab25013acefbdcc6d68a2a7a2c9081303e3f` on all
 three files. This is limited synthetic-corpus evidence from two implementations,
-not the required MediaRecorder/YouTube corpus qualification. FFprobe's
+with the additional producer cases documented below. FFprobe's
 millisecond time base rounds the first Opus timestamp differently from exact
 nanosecond CodecDelay subtraction; no exact timing equivalence is claimed.
 Raw media, manifests and command evidence remain local under ignored runs/.
 
-All current repository gates pass locally on Linux with Rust 1.89.0: 48
+All current repository gates pass locally on Linux with Rust 1.89.0: 53
 integration tests and two doctests in debug/release, strict all-target Clippy,
 formatting, warning-free rustdoc and zero third-party dependencies. This evidence
 does not close the outstanding corpus, timing, trim, fuzz or performance gates.
+
+The real producer corpus now includes native Chromium 156.0.8078.4 MediaRecorder
+Opus audio and VP9/Opus output (28 selected audio packets each), plus completed
+YouTube format 251 audio for Big Buck Bunny (29,825 packets). Exact bytes/order
+match pinned Nestegg; packet SHA-256 and CodecPrivate match FFmpeg. Both actual
+browser chunk sequences continue through WouldBlock without packet changes.
+The mixed browser case produced failing regressions before adding explicit
+MaxBlockAdditionID handling and bounded unselected-track additions skipping.
+Selected additions still fail before packet emission. See the sanitized
+[packet report](packet-qualification.md) for source rights, input hashes, exact
+versions, method and remaining limits. Raw source/profiles/results stay ignored.

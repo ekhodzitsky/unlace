@@ -44,8 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     hex(&mut output, &track.codec_private)?;
                     writeln!(
                         output,
-                        "\",\"codec_delay_ns\":{},\"seek_preroll_ns\":{}}}",
-                        track.codec_delay_ns, track.seek_preroll_ns
+                        "\",\"codec_delay_ns\":{},\"seek_preroll_ns\":{},\"max_block_addition_id\":{}}}",
+                        track.codec_delay_ns, track.seek_preroll_ns, track.max_block_addition_id
                     )?;
                 }
             }

@@ -4,6 +4,16 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Preserve MaxBlockAdditionID track declarations and safely skip bounded opaque
+  BlockAdditions on unselected tracks. Selected-track additions remain explicit
+  unsupported errors, including when additions precede the group's Block.
+  Track struct literals must initialize the new `max_block_addition_id` field
+  (default metadata value 0); account for this pending API change at the next
+  source milestone under the pre-1.0 minor-version policy.
+- Qualify selected audio packet bytes/order and CodecPrivate on pinned native
+  Chromium MediaRecorder and completed YouTube audio against FFmpeg and Nestegg.
+  Record sanitized corpus identities and scope; raw media/results remain local.
+
 - Add bounded sequential selected-audio packet events over `Read`, with stable
   track identity, codec metadata, checked signed nanosecond timing and explicit
   uncertainty for later laced frames lacking DefaultDuration.
@@ -13,7 +23,7 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
   reject unsupported content encodings, codec state/additions and CRC explicitly.
 - Add a sequential audio manifest example and container-level regressions for
   every-byte truncation, interrupted input, selection, lacing and terminal errors.
-  Real MediaRecorder/YouTube and decoded trim qualification remain unfinished.
+  Decoded trim and broader corpus/performance qualification remain unfinished.
 - Add zero-allocation, schema-driven EBML framing over `Read`, with retained
   partial headers, `WouldBlock` continuation and explicit final source EOF.
 - Enforce finite parent boundaries and schema-driven unknown-size termination;

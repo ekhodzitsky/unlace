@@ -71,6 +71,9 @@ pub struct Track {
     pub codec_delay_ns: u64,
     /// Required decoder preroll in nanoseconds; no decoding is performed here.
     pub seek_preroll_ns: u64,
+    /// Declared maximum BlockAddID (default 0). This declaration alone does not
+    /// imply that additions occur. Selected-track BlockAdditions are unsupported.
+    pub max_block_addition_id: u64,
     /// Default encoded frame duration in nanoseconds, when supplied.
     pub default_duration_ns: Option<u64>,
     /// Whether lacing is permitted on this track.
@@ -251,6 +254,7 @@ struct TrackState {
 }
 #[derive(Default)]
 struct Group {
+    additions: bool,
     header: Option<Header>,
     reference: bool,
     duration: Option<u64>,
@@ -284,7 +288,9 @@ enum Action {
 /// fixed context/frame tables. No Seek, codec, networking or external tools are
 /// required. A blocking Read may block; work limits bound calls, not latency.
 /// The first release of this layer rejects CRC-32, content encodings, codec
-/// state/additions, nonunit TrackTimestampScale and chained documents explicitly.
+/// state changes, selected-track additions, nonunit TrackTimestampScale and
+/// chained documents explicitly. Unselected additions are skipped opaquely under
+/// finite boundary and skip-size limits once the group track is resolved.
 /// Known ancillary finite masters may be skipped opaquely as documented.
 pub struct Demuxer<R> {
     reader: stream::Reader<'static, R>,
@@ -520,11 +526,11 @@ impl<R: Read> Demuxer<R> {
             return Err(DemuxError::Invalid("duplicate singleton element"));
         }
         *seen |= mask;
-        if matches!(id, 0xbf | 0x6d80 | 0x41e4 | 0xe2 | 0xa4 | 0x75a1) {
+        if matches!(id, 0xbf | 0x6d80 | 0x41e4 | 0xe2 | 0xa4) {
             return Err(DemuxError::Unsupported(match id {
                 0xbf => "CRC-32 verification",
                 0x6d80 => "content compression or encryption",
-                0x41e4 | 0x75a1 => "block additions",
+                0x41e4 => "block additions",
                 0xe2 => "track operations",
                 _ => "codec state changes",
             }));
@@ -563,6 +569,7 @@ impl<R: Read> Demuxer<R> {
                         codec_private: Vec::new(),
                         codec_delay_ns: 0,
                         seek_preroll_ns: 0,
+                        max_block_addition_id: 0,
                         default_duration_ns: None,
                         lacing_allowed: true,
                         enabled: true,
@@ -589,6 +596,15 @@ impl<R: Read> Demuxer<R> {
             }
             0xa0 => {
                 self.group = Some(Group::default());
+            }
+            0x75a1 => {
+                // A BlockGroup may place additions before Block. Retain the
+                // fact until its track is known; framing checks the finite
+                // opaque boundary and skip budget without allocating payload.
+                self.group
+                    .as_mut()
+                    .ok_or(DemuxError::Invalid("additions outside group"))?
+                    .additions = true;
             }
             0xa1 | 0xa3 => {
                 if self.cluster_timestamp.is_none() {
@@ -847,6 +863,10 @@ impl<R: Read> Demuxer<R> {
                     return Err(DemuxError::Unsupported("nonunit TrackTimestampScale"));
                 }
             }
+            0x55ee => {
+                let value = uint(&self.metadata)?;
+                self.track_mut()?.max_block_addition_id = value;
+            }
             0x537f => {
                 if sint(&self.metadata)? != 0 {
                     return Err(DemuxError::Unsupported("nonzero TrackOffset"));
@@ -964,6 +984,9 @@ impl<R: Read> Demuxer<R> {
             .ok_or(DemuxError::Invalid("timestamp overflow"))?;
         if self.selected != Some(track_index) {
             return Ok(());
+        }
+        if self.group.as_ref().is_some_and(|group| group.additions) {
+            return Err(DemuxError::Unsupported("block additions"));
         }
         let mut start =
             self.block_data.len() - parsed.frames().map(|frame| frame.len()).sum::<usize>();

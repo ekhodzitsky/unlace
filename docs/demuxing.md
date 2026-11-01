@@ -3,9 +3,11 @@
 The unreleased `demux` module emits original encoded audio packets over `Read`,
 without requiring `Seek`. It integrates the [streaming core](streaming.md) and
 [block parser](blocks.md). This is an early, explicitly bounded subset, with no
-production, universal-conformance or performance claim. Browser MediaRecorder,
-YouTube and matched competitor qualification remain required before closing the
-current demux milestone. Ordinary builds/tests need no external tools or media.
+production, universal-conformance or performance claim. Selected packet bytes
+now pass the pinned [producer corpus checks](packet-qualification.md) against
+FFmpeg and Nestegg. Broader timing, trim, hostile-input and performance
+qualification remain unfinished. Ordinary builds/tests need no external tools
+or media.
 
 ## Consumer contract
 
@@ -14,7 +16,7 @@ Construct `Demuxer::new(source, AudioSelection, DemuxLimits)` and call `poll`.
 exact enabled audio TrackNumber, rather than a vector index. Missing, disabled
 or nonaudio selection returns AudioTrackUnavailable. Every track remains
 available through `tracks()`, including number/UID/type, codec ID/private data,
-delay/preroll, DefaultDuration and audio settings. `TracksReady` indicates that
+delay/preroll, DefaultDuration, MaxBlockAdditionID and audio settings. `TracksReady` indicates that
 selection and track metadata are finalized; Info may still follow Tracks.
 
 A Packet borrows the demuxer's current block storage until the next mutable
@@ -75,8 +77,13 @@ Cluster may have unknown size. BlockGroup and metadata masters must be finite.
 No/fixed/Xiph/EBML lacing, FlagLacing, reference presence, BlockDuration and signed
 DiscardPadding are interpreted. Audio tracks require Audio settings. Nonunit
 TrackTimestampScale, nonzero TrackOffset, ContentEncodings (including encryption
-and compression), TrackOperation, codec state changes and block additions return
-Unsupported, including when encountered on an unselected track. CRC-32 returns
+and compression), TrackOperation, codec state changes and addition mappings return
+Unsupported, including when encountered on an unselected track. BlockAdditions
+for selected audio also return Unsupported before packet emission. Finite
+BlockAdditions on unselected tracks are skipped opaquely after resolving the
+group track, even when additions precede Block. Outer boundaries and skip limits
+are checked; their descendants and semantic validity are not. MaxBlockAdditionID
+is retained as a declaration and does not itself imply additions occur. CRC-32 returns
 Unsupported until checksum verification is implemented; it is never ignored.
 Chained EBML documents and multiple Segments return Unsupported.
 

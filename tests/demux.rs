@@ -781,3 +781,145 @@ fn unsupported_order_and_chained_documents_do_not_look_like_clean_completion() {
         Completion::FiniteSegment
     );
 }
+
+#[test]
+fn browser_max_block_addition_id_declaration_does_not_block_other_track_audio() {
+    let mut tracks = track(1, false, &number(0x55ee, 1));
+    tracks.extend(track(2, true, &[]));
+    let mut cluster = number(0xe7, 0);
+    cluster.extend(element(0xa3, &block(1, 0, 0x80, &[9])));
+    cluster.extend(element(0xa3, &block(2, 0, 0x80, &[1, 2])));
+    let data = document(&tracks, &element(CLUSTER, &cluster), &[], &[], false);
+    let mut demux = reader(&data);
+    let (packets, completion) = drain(&mut demux).unwrap();
+    assert_eq!(demux.tracks()[0].max_block_addition_id, 1);
+    assert_eq!(demux.tracks()[1].max_block_addition_id, 0);
+    assert_eq!(packets.len(), 1);
+    assert_eq!(packets[0].data, [1, 2]);
+    assert_eq!(packets[0].track, 2);
+    assert_eq!(completion, Completion::FiniteSegment);
+}
+
+#[test]
+fn max_block_addition_id_checks_width_and_singleton_occurrence() {
+    for extra in [
+        element(0x55ee, &[0; 9]),
+        [number(0x55ee, 1), number(0x55ee, 1)].concat(),
+    ] {
+        let data = document(&track(1, true, &extra), &[], &[], &[], false);
+        assert!(matches!(
+            drain(&mut reader(&data)),
+            Err(DemuxError::Invalid(_))
+        ));
+    }
+    for value in [0, 1, u64::MAX] {
+        let data = document(
+            &track(1, true, &number(0x55ee, value)),
+            &[],
+            &[],
+            &[],
+            false,
+        );
+        let mut demux = reader(&data);
+        drain(&mut demux).unwrap();
+        assert_eq!(demux.tracks()[0].max_block_addition_id, value);
+    }
+    let data = document(&track(1, true, &element(0x55ee, &[])), &[], &[], &[], false);
+    let mut demux = reader(&data);
+    drain(&mut demux).unwrap();
+    assert_eq!(demux.tracks()[0].max_block_addition_id, 0);
+}
+
+#[test]
+fn audio_selection_skips_bounded_unselected_video_additions_in_either_order() {
+    for additions_first in [false, true] {
+        let mut tracks = track(1, false, &number(0x55ee, 1));
+        tracks.extend(track(2, true, &[]));
+        let addition = element(0x75a1, &element(0xa6, &element(0xa5, &[3, 4])));
+        let video_block = element(0xa1, &block(1, 0, 0, &[9]));
+        let group = if additions_first {
+            [addition, video_block].concat()
+        } else {
+            [video_block, addition].concat()
+        };
+        let mut cluster = number(0xe7, 0);
+        cluster.extend(element(0xa0, &group));
+        cluster.extend(element(0xa3, &block(2, 0, 0x80, &[1, 2])));
+        let data = document(&tracks, &element(CLUSTER, &cluster), &[], &[], false);
+        let packets = drain(&mut reader(&data)).unwrap().0;
+        assert_eq!(packets.len(), 1);
+        assert_eq!(packets[0].data, [1, 2]);
+        assert_eq!(packets[0].track, 2);
+    }
+}
+
+#[test]
+fn selected_track_additions_are_rejected_before_any_group_packet_in_either_order() {
+    for additions_first in [false, true] {
+        let addition = element(0x75a1, &element(0xa6, &element(0xa5, &[3, 4])));
+        let audio_block = element(0xa1, &block(1, 0, 0, &[1, 2]));
+        let group = if additions_first {
+            [addition, audio_block].concat()
+        } else {
+            [audio_block, addition].concat()
+        };
+        let mut cluster = number(0xe7, 0);
+        cluster.extend(element(0xa0, &group));
+        let data = document(
+            &track(1, true, &number(0x55ee, 1)),
+            &element(CLUSTER, &cluster),
+            &[],
+            &[],
+            false,
+        );
+        let mut demux = reader(&data);
+        loop {
+            match demux.poll() {
+                Ok(DemuxEvent::Packet(_)) => {
+                    panic!("selected-track additions were silently discarded")
+                }
+                Err(DemuxError::Unsupported("block additions")) => break,
+                Err(error) => panic!("{error}"),
+                Ok(DemuxEvent::End(_)) => panic!("selected-track additions accepted"),
+                _ => (),
+            }
+        }
+    }
+}
+
+#[test]
+fn ignored_additions_still_enforce_skip_limits_boundaries_and_final_eof() {
+    let mut tracks = track(1, false, &number(0x55ee, 1));
+    tracks.extend(track(2, true, &[]));
+    let mut group = element(0xa1, &block(1, 0, 0, &[9]));
+    group.extend(element(0x75a1, &element(0xa6, &element(0xa5, &[3, 4, 5]))));
+    let mut cluster = number(0xe7, 0);
+    cluster.extend(element(0xa0, &group));
+    let data = document(&tracks, &element(CLUSTER, &cluster), &[], &[], false);
+    let limits = DemuxLimits {
+        framing: unlace::stream::Limits {
+            max_skip_size: 3,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut demux = Demuxer::new(data.as_slice(), AudioSelection::First, limits).unwrap();
+    assert!(matches!(
+        drain(&mut demux),
+        Err(DemuxError::Stream(StreamError::Limit("skip size")))
+    ));
+    assert!(matches!(
+        drain(&mut reader(&data[..data.len() - 1])),
+        Err(DemuxError::Stream(StreamError::Truncated { .. }))
+    ));
+    // The additions header declares a byte beyond its enclosing finite group.
+    let mut group = element(0xa1, &block(1, 0, 0, &[9]));
+    group.extend([0x75, 0xa1, 0x81]);
+    let mut cluster = number(0xe7, 0);
+    cluster.extend(element(0xa0, &group));
+    let data = document(&tracks, &element(CLUSTER, &cluster), &[], &[], false);
+    assert!(matches!(
+        drain(&mut reader(&data)),
+        Err(DemuxError::Stream(StreamError::Invalid(_)))
+    ));
+}
