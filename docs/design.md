@@ -49,8 +49,8 @@ rejected/skipped according to a documented rule. Writing containers is a separat
 capability and must distinguish live output from durably finalized indexed files.
 Sequential audio events now integrate the core and block parser under the
 explicit [demuxing subset](demuxing.md). Broader end-to-end qualification
-and writing remain unfinished; the target contracts are broader than current
-verified capability.
+and writer qualification remain unfinished; the target contracts are broader
+than current verified capability.
 
 The [positional source layer](sources.md) is separate from sequential `Read`:
 providers supply a known complete length and immutable revision, reads have
@@ -67,3 +67,10 @@ resource behavior must each be tested independently. No single benchmark or
 synthetic packet proves overall superiority. The [qualification protocol](qualification.md)
 defines the boundary for future claims. Backlog.md is the only execution queue;
 this document records stable requirements, not task status.
+
+The initial [writer](writing.md) accepts already encoded WebM blocks over Write
+with separate Write + Seek finalization. Live output retains source-completeness
+uncertainty; indexed output requires a checked receipt. Generic failed flushes
+cannot guarantee atomic visibility, so the file example stages publication.
+[Initial output evidence](writer-qualification.md) retains a long-file layout
+limitation and leaves writer qualification open.

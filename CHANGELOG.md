@@ -4,6 +4,17 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Add initial encoded WebM writing with separate live and indexed output, all
+  lacing modes, exact clock/delay/trim preservation, bounded fallible state and
+  explicit finish receipts. Poison partial I/O and retain failure stage/cause;
+  generic flush success is not atomic publication or storage durability.
+- Add a staged selected-audio remux example and writer regressions covering
+  every-byte output failure, finalization faults and verified cue destinations.
+  Initial independent packet and mono/stereo PCM checks pass within documented
+  scope. Writer qualification remains open: the per-block Cluster layout has
+  unfavorable long-file resource behavior and needs bounded packing/multi-track
+  qualification. No Cargo version/release change is made.
+
 - Record pinned selected-audio comparisons against five competitor libraries,
   including separate classic/incremental libwebm adapters. Gate exact fields
   before timing; report repeated startup/throughput, process RSS/allocations,

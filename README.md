@@ -1,10 +1,12 @@
 # unlace
 
-Unlace is a private Rust project for streaming WebM and Matroska demuxing.
+Unlace is a private Rust project for bounded WebM and Matroska container reading
+and writing.
 The **0.1.0 source milestone** provides allocation-free EBML integer parsing.
 Unreleased work adds bounded sequential audio packet events over `Read`, with
-track selection and all block lacing modes. This early subset remains under
-qualification; it is not a general or production-qualified Matroska reader.
+track selection and all block lacing modes, plus initial live/indexed WebM
+writing from encoded blocks. These early subsets remain under
+qualification; unlace is not a general or production-qualified Matroska reader.
 
 [Design](docs/design.md) · [Competitors](docs/comparison.md) · [Verification](docs/verification.md)
 
@@ -61,6 +63,18 @@ byte extents, actual read work and observed source replacement. This input layer
 supports the separate [seek reader](docs/seeking.md), which validates index
 destinations and reports actual starts, preroll, fallback and suffix completion.
 
+For selected-audio writing, with no codec encoding:
+
+```sh
+cargo run --offline --locked --example remux_audio -- INPUT.webm OUTPUT.webm indexed
+cargo run --offline --locked --example remux_audio -- INPUT.webm OUTPUT.webm live 2
+```
+
+The example preserves the selected track's supported metadata and complete laced
+blocks. It keeps failed staging data and never overwrites an existing destination.
+A finalization receipt is distinct from storage durability and intended source
+completeness; see the [writing contract](docs/writing.md).
+
 ## Existing alternatives
 
 | Library | Choose it for | Current unlace boundary |
@@ -93,8 +107,11 @@ The [qualification protocol](docs/qualification.md) defines equivalent-work
 checks required before performance comparisons. The measured consumer job does
 not establish interchangeable validation or completion guarantees.
 
-Unlace does not yet write containers. Container seeking is available under the
-explicit [seek contract and qualification](docs/seeking.md). The sequential reader explicitly
+Initial [encoded WebM writing](docs/writing.md) separates live and indexed
+completion, with checked finalization and a staged remux example. Its
+[qualification](docs/writer-qualification.md) remains open, including an unfavorable
+long-file Cluster layout and broader multi-track checks. Container seeking is
+available under the explicit [seek contract and qualification](docs/seeking.md). The sequential reader explicitly
 rejects unsupported transformations, CRC-32 and several general Matroska features.
 The pinned [MediaRecorder/YouTube corpus](docs/packet-qualification.md) matches
 selected packet bytes with two independent demuxers. The

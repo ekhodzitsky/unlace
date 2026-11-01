@@ -175,3 +175,19 @@ warning-free rustdoc and zero third-party dependencies. The retained final
 adapter rebuild reproduces all timed executable SHA-256 values; an audit verifies
 all admitted trial counts/digests/preroll, corpus hashes and measured artifact
 pins. No remote workflow or release artifact was created.
+
+Initial encoded output adds 22 writer regressions and one executable module
+example. The [writer contract](writing.md) and [partial qualification](writer-qualification.md)
+distinguish checked live/indexed receipts, preflight resource refusals, terminal
+partial I/O, exact trim/clock handling and staged file publication. Short/native
+producer/Vorbis/six-hour audio output passes the documented counterparts within
+the stated limits; complete mono/stereo independent PCM is unchanged. Classic
+full-load long-output resource failures remain recorded and writer qualification
+stays open for bounded Cluster packing and broader multi-track/fault checks.
+
+All initial writer gates pass locally with Rust 1.89.0: 130 integration tests and
+five doctests in debug/release, strict all-target Clippy, formatting, warning-free
+rustdoc and zero third-party dependencies. Rebuilding the final source reproduces
+all 14 qualified output hashes byte for byte. Publication failure checks preserve
+staging data and existing destination contents. Cargo stays unpublished 0.1.0;
+this additive API joins the pending source milestone without a release/tag.
