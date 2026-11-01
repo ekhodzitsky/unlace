@@ -4,6 +4,12 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Add bounded positional input over provider-versioned immutable snapshots and
+  a separate Read + Seek adapter. Report capped missing-range requests, actual
+  read work and explicit extent-log truncation; latch observed source changes
+  and inconsistent EOF/read counts. This is input infrastructure, not yet a
+  container seek API or index validator.
+
 - Validate A_OPUS initialization, channel/rate/delay relations and exact pre-skip
   samples; expose compatible OpusHead fields without decoding or changing bytes.
   Report integer-nanosecond quantization explicitly instead of silently rounding.

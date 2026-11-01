@@ -28,6 +28,8 @@ pub mod demux;
 
 pub mod opus;
 
+pub mod source;
+
 /// A complete value or an incomplete prefix. Input is never mutated or retained.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Parsed<T> {

@@ -108,3 +108,15 @@ and three doctests in debug and release, strict all-target Clippy, formatting,
 warning-free rustdoc and the zero-dependency check. The final audio manifest
 example was rebuilt; decoded PCM qualification and all three real producer
 packet comparisons passed again against that final implementation.
+
+Positional input adds sixteen source-contract tests and an executable module
+example. They cover backward/short reads, range continuation at every byte
+prefix, bounded retries/work, capped missing-range requests, exact read counters,
+explicit extent-log truncation, observed length/revision replacement including
+A-B-A, changes during successful/error reads, post-read snapshot failure,
+premature EOF, invalid provider counts, empty sources and maximum offsets.
+The Read + Seek adapter checks returned seek positions and observed length
+changes; it cannot detect same-length external writes. These tests exercise
+input infrastructure only, not Cues/SeekHead validation or container seeking.
+All required local Rust 1.89.0 gates passed with 87 integration tests and four
+doctests in debug/release, strict Clippy, formatting, rustdoc and zero dependencies.

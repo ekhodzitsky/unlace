@@ -52,6 +52,11 @@ explicit [demuxing subset](demuxing.md). End-to-end corpus qualification, seekin
 and writing remain unfinished; the target contracts are broader than current
 verified capability.
 
+The [positional source layer](sources.md) is separate from sequential `Read`:
+providers supply a known complete length and immutable revision, reads have
+explicit per-operation work budgets, and read extents do not imply validation.
+It is infrastructure for the pending seek API; Cues/SeekHead remain unvalidated.
+
 ## Evidence for decisions
 
 The selected competitors and the mechanisms worth evaluating are documented in

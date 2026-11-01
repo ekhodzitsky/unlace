@@ -55,6 +55,11 @@ packet lifetimes, timestamp uncertainty for laced frames, final EOF evidence
 and explicit unsupported features. The example emits a correctness manifest;
 it does not decode audio or benchmark throughput.
 
+The separate [positional source contract](docs/sources.md) provides bounded
+reads for immutable files and externally cached ranges. It reports unavailable
+byte extents, actual read work and observed source replacement. This input layer
+does not yet implement container seeking or validate Cues/SeekHead offsets.
+
 ## Existing alternatives
 
 | Library | Choose it for | Current unlace boundary |
