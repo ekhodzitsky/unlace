@@ -4,6 +4,14 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Add zero-allocation, schema-driven EBML framing over `Read`, with retained
+  partial headers, `WouldBlock` continuation and explicit final source EOF.
+- Enforce finite parent boundaries and schema-driven unknown-size termination;
+  refuse unsupported IDs and invalid forms without scanning payloads.
+- Bound depth, declared metadata/payload/skip sizes and per-poll read work.
+- Add sequential framing example and deterministic streaming regressions.
+  This core does not yet validate WebM documents or extract audio packets.
+
 ## 0.1.0 - 2026-11-01
 
 - Establish the private, unpublished, zero-third-party-dependency Rust project.

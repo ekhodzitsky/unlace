@@ -2,7 +2,8 @@
 
 The first source milestone uses Rust 1.89.0, safe Rust and no third-party Cargo
 dependencies. The pinned toolchain is the minimum version used for local checks.
-The example parses an EBML ID and an unknown size; it does not read a WebM file.
+The integer example parses an EBML ID and an unknown size; the unreleased
+streaming example frames a synthetic header. Neither demuxes a WebM file.
 
 Integer tests cover every supported width, all prefixes of representative
 headers, reserved/noncanonical IDs, sentinel sizes, nonminimal legal sizes,
@@ -25,3 +26,14 @@ is pending owner selection. No production or universal-superiority claim is made
 Initial local gates passed on Linux with Rust 1.89.0: five integration tests and
 one doctest in both debug and release, strict all-target Clippy, formatting,
 warning-free rustdoc, the executable example and the zero-dependency check.
+
+Unreleased streaming checks use independently constructed synthetic fixtures.
+Seventeen tests cover exact bytes/order/offsets, all nonempty finite-fixture and
+twelve-byte-header truncations, short reads, interrupted/WouldBlock continuation
+and source errors at every byte position, malformed parents and inherited finite
+boundaries, schema validation, unknown-size termination, opaque skipping, width
+and resource limits, all 64 stack slots, and 100,000 successive root elements.
+A deterministic 12,800-input random smoke test exercises parser entry states; it
+is not sustained coverage-guided fuzzing or evidence of whole-container safety.
+No competitor, media corpus, decoded trimming or performance qualification has
+been completed. See [streaming.md](streaming.md) for the exact core contract.

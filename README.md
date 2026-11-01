@@ -1,8 +1,9 @@
 # unlace
 
 Unlace is a private Rust project for streaming WebM and Matroska demuxing.
-The initial **0.1.0 source milestone** provides allocation-free EBML integer
-parsing; audio packet extraction is not available yet.
+The **0.1.0 source milestone** provides allocation-free EBML integer parsing.
+Unreleased work adds schema-driven incremental framing over `Read`; audio packet
+extraction is not available yet.
 
 [Design](docs/design.md) · [Competitors](docs/comparison.md) · [Verification](docs/verification.md)
 
@@ -37,6 +38,11 @@ An unknown-size result describes integer syntax only. It does not validate
 whether the containing element is allowed to have unknown size. A finite size
 never authorizes an allocation by itself.
 
+For sequential framing, run `cargo run --offline --locked --example stream_ebml`.
+The [streaming contract](docs/streaming.md) explains caller-provided schemas,
+zero-allocation payload chunks, `WouldBlock` continuation, final source EOF and
+resource limits. This core does not yet validate a WebM document.
+
 ## Existing alternatives
 
 | Library | Choose it for | Current unlace boundary |
@@ -53,7 +59,10 @@ goal; no speed, resource-use or compatibility ranking has been established.
 
 Local tests cover size widths 1–8, unknown-size sentinels, truncation, canonical
 IDs and the Matroska 0x80 correction. Exhaustive one/two-byte checks exercise the
-integer boundary. These results do not qualify complete WebM parsing.
+integer boundary. Streaming regressions cover all finite-fixture truncations,
+short/interrupted reads, continuation at every byte position, unknown-size
+termination, malformed boundaries and explicit resource limits. These results do
+not qualify complete WebM parsing.
 
 There are no representative container benchmarks or coverage measurements yet.
 The [qualification protocol](docs/qualification.md) defines equivalent-work

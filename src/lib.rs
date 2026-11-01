@@ -1,7 +1,8 @@
 //! Bounded WebM/Matroska parsing foundations.
 //!
-//! Current scope is allocation-free EBML element ID and size parsing. Complete
-//! container demuxing, packet iteration, seeking and writing are not implemented.
+//! Provides allocation-free EBML integer parsing and schema-driven incremental
+//! framing in [`stream`]. Complete container demuxing, packet iteration, seeking
+//! and writing are not implemented.
 //!
 //! ```
 //! use unlace::{parse_id, parse_size, ElementSize, Parsed};
@@ -16,6 +17,8 @@
 //! ```
 
 use std::fmt;
+
+pub mod stream;
 
 /// A complete value or an incomplete prefix. Input is never mutated or retained.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

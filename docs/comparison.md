@@ -3,7 +3,8 @@
 Reviewed 2026-11-01 from primary documentation and selected APIs. This is an
 initial capability review, not execution evidence or a complete security audit.
 Repository branches may change; exact revisions must be pinned before trials.
-Unlace currently has integer primitives only and is not a qualified replacement.
+Unlace has integer primitives and an unreleased structural streaming core; it
+is not a qualified demuxer replacement.
 
 | Project | Language | Observed capability | Mechanism worth evaluating |
 | --- | --- | --- | --- |

@@ -31,7 +31,10 @@ interpret them; it does not promise decoded audio simply because packets parsed.
 
 ## Capability boundary
 
-The current API parses only ID/size integers from slices. ID widths are limited
+The initial milestone parses ID/size integers from slices. Unreleased work adds
+a schema-driven incremental `Read` framing core; its exact structural scope and
+limits are described in [streaming.md](streaming.md). It does not yet validate
+a complete WebM document. ID widths are limited
 to four bytes and sizes to eight for the intended Matroska/WebM scope. It follows
 [RFC 8794](https://www.rfc-editor.org/rfc/rfc8794.html), including the
 [RFC 9559 correction](https://www.rfc-editor.org/rfc/rfc9559.html#section-4.2)
