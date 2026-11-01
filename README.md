@@ -70,8 +70,10 @@ destinations and reports actual starts, preroll, fallback and suffix completion.
 | [libwebm](https://github.com/webmproject/libwebm) | C++ parsing/muxing and incremental parser APIs | Unlace is not a qualified replacement |
 
 [The comparison](docs/comparison.md) records further competitors, primary
-sources and the capabilities we intend to evaluate. Superiority is a project
-goal; no speed, resource-use or compatibility ranking has been established.
+sources and the mechanisms evaluated. The pinned
+[selected-audio comparison](docs/matched-comparison.md) reports exact-field gates,
+time, RSS, allocations and fresh-handle seek costs with retained unfavorable
+results. It establishes no overall speed or compatibility ranking.
 
 ## Evidence and limits
 
@@ -82,12 +84,14 @@ short/interrupted reads, continuation at every byte position, unknown-size
 termination, malformed boundaries and explicit resource limits. These results do
 not qualify complete WebM parsing.
 
-There are no matched container performance benchmarks yet. Compiler source-region
+Matched selected-audio measurements and their limits are recorded in the
+[comparison report](docs/matched-comparison.md). Compiler source-region
 coverage for bounded optional fuzz targets and six-hour completeness evidence are
 recorded in [robustness qualification](docs/robustness.md); this is not branch
 coverage or a safety proof.
 The [qualification protocol](docs/qualification.md) defines equivalent-work
-checks required before performance comparisons. No numerical advantage is claimed.
+checks required before performance comparisons. The measured consumer job does
+not establish interchangeable validation or completion guarantees.
 
 Unlace does not yet write containers. Container seeking is available under the
 explicit [seek contract and qualification](docs/seeking.md). The sequential reader explicitly
@@ -95,13 +99,13 @@ rejects unsupported transformations, CRC-32 and several general Matroska feature
 The pinned [MediaRecorder/YouTube corpus](docs/packet-qualification.md) matches
 selected packet bytes with two independent demuxers. The
 [Opus timing contract](docs/opus-timing.md) includes independently checked
-mono/stereo start/end trimming. Broader decoded-audio coverage and matched
-performance trials remain unfinished. It does not decode Opus,
+mono/stereo start/end trimming. Broader decoded-audio coverage and writer
+qualification remain unfinished. It does not decode Opus,
 fetch URLs or recognize speech.
 The repository is private, package publication is disabled, hosted Actions are
 disabled and no release artifact is published. A distribution license has not
 been selected. Downloads, docs.rs and CI badges therefore do not apply; ordinary
-test-suite coverage and matched performance benchmarks remain unmeasured.
+test-suite branch coverage and general performance superiority remain unproven.
 
 ## Development
 

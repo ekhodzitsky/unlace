@@ -1,8 +1,10 @@
 # Matched qualification protocol
 
-This protocol defines how future superiority claims may be earned. It contains
-no performance results. Correctness and equivalent work are prerequisites to
-timing; decoding, transcoding or playback must not be timed against demuxing alone.
+This protocol defines how scoped superiority claims may be earned. The
+[pinned selected-audio report](matched-comparison.md) records the current limited
+consumer job, results and unresolved equivalence boundaries. This protocol itself
+contains no performance results. Correctness and equivalent work are
+prerequisites to timing; decoding, transcoding or playback must not be timed against demuxing alone.
 
 ## Corpus and output contract
 

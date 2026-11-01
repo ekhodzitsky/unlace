@@ -1,11 +1,13 @@
 # Competitor evidence and selection
 
-Reviewed 2026-11-01 from primary documentation and selected APIs. This is an
-initial capability review, not execution evidence or a complete security audit.
-Repository branches may change; exact revisions must be pinned before trials.
+Reviewed 2026-11-01 from primary documentation and selected APIs. This review
+is supplemented by [pinned execution measurements](matched-comparison.md), with
+separate classic/incremental libwebm variants and explicit metadata gates. Neither
+report is a complete security audit. The source pins in that report identify
+the tested revisions independently of changing repository branches.
 Unlace has an unreleased bounded sequential audio subset; it is not a qualified
-demuxer replacement. Current synthetic packet checks do not establish the full
-corpus, timing, decoded trim or performance contract.
+demuxer replacement. Its producer, trim and six-hour checks and measured
+consumer job have explicit scope; they do not establish the entire target contract.
 
 | Project | Language | Observed capability | Mechanism worth evaluating |
 | --- | --- | --- | --- |
@@ -21,9 +23,9 @@ corpus, timing, decoded trim or performance contract.
 | [ebml-go](https://github.com/at-wat/ebml-go) | Go | Marshal/unmarshal over io.Reader/io.Writer; common WebM subset | Reader/writer boundaries and reusable EBML core |
 
 The matroska-demuxer source exposes CodecDelay/SeekPreRoll, but the reviewed
-public Frame has no separate DiscardPadding field. Whether that meets exact
-Opus trimming requirements needs direct tests; no truncation bug is asserted
-from that observation alone. libwebm's incremental parser is distinct from
+public Frame has no separate DiscardPadding field. The pinned execution
+adapter cannot meet the raw trim-field gate. This API limitation is distinct
+from a truncation bug. libwebm's incremental parser is distinct from
 its older mkvparser API and must be identified correctly in comparisons.
 
 ## Adoption and competition
@@ -31,8 +33,10 @@ its older mkvparser API and must be identified correctly in comparisons.
 A consumer needing complete demuxing now should evaluate existing libraries.
 Pure Rust and zero dependencies alone are not unique differentiators. Unlace's
 proposed advantage combines bounded incremental parsing, explicit completeness,
-precise audio metadata, verified seek extents and a compact API; it remains
-unproven until qualified on the same corpus and work as competitors.
+precise audio metadata, verified seek extents and a compact API; the matched report
+qualifies a limited selected-packet consumer job, with slower unlace full
+iteration and explicit resource/startup tradeoffs. It does not prove overall
+superiority or interchangeable validation guarantees.
 
 Study behavior and design choices without assuming that source code may be
 relicensed. Record provenance and applicable licenses for any reused code or

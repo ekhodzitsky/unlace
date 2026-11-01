@@ -4,6 +4,11 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Record pinned selected-audio comparisons against five competitor libraries,
+  including separate classic/incremental libwebm adapters. Gate exact fields
+  before timing; report repeated startup/throughput, process RSS/allocations,
+  read volume, seek windows and unfavorable cases without an overall ranking.
+
 - Add optional dependency-free coverage-guided fuzz tools with original synthetic
   seeds, bounded input processes, retained findings and a bounded reducer. Record
   exact scope/coverage and 39,000 mutations without treating success as safety.

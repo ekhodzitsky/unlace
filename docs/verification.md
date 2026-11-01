@@ -156,3 +156,22 @@ and the zero-dependency check. Optional fuzz tools also passed Rust formatting,
 Python byte compilation/CLI checks, warning-free standalone test compilation,
 retained-corpus replay, dense-lace cases and reducer self-check. No production
 API, Cargo version or runtime dependency changed in this qualification slice.
+
+The [matched selected-audio report](matched-comparison.md) records 150 counterpart
+field comparisons across 25 sources/cases, 392 sequential and 280 fresh-handle
+seek timing/RSS trials, 84 sequential and 60 seek allocation trials, and 1,547
+bounded finite-prefix processes. All five named libraries were built; missing
+metadata, unsuccessful completion, unsupported index layouts and unqualified
+timing adapters are distinguished. Every admitted measurement matches its
+manifest-derived consumer digest/count/window and observed preroll requirement.
+Native EOF conventions remain separate from unlace completeness. Raw sources,
+adapters, logs and media stay ignored; only sanitized methods/aggregates are
+tracked. This slice changes documentation, with no production API, Cargo version
+or dependency change.
+
+Final comparison gates passed locally on Rust 1.89.0: 108 integration tests and
+four doctests in both debug/release, strict all-target Clippy, formatting,
+warning-free rustdoc and zero third-party dependencies. The retained final
+adapter rebuild reproduces all timed executable SHA-256 values; an audit verifies
+all admitted trial counts/digests/preroll, corpus hashes and measured artifact
+pins. No remote workflow or release artifact was created.
