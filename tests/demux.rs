@@ -54,7 +54,7 @@ fn track(number_: u64, audio: bool, extra: &[u8]) -> Vec<u8> {
     let mut data = number(0xd7, number_);
     data.extend(number(0x73c5, 100 + number_));
     data.extend(number(0x83, if audio { 2 } else { 1 }));
-    data.extend(element(0x86, if audio { b"A_OPUS" } else { b"V_VP9" }));
+    data.extend(element(0x86, if audio { b"A_TEST" } else { b"V_VP9" }));
     if audio {
         data.extend(element(0x63a2, &[0, 1, 2]));
         let mut settings = element(0xb5, &48000f64.to_be_bytes());
@@ -196,7 +196,7 @@ fn selected_audio_packets_have_exact_order_tracks_timestamps_and_late_group_meta
         }
         assert_eq!(demux.tracks().len(), 2);
         let audio = &demux.tracks()[1];
-        assert_eq!(audio.codec_id, "A_OPUS");
+        assert_eq!(audio.codec_id, "A_TEST");
         assert_eq!(audio.codec_private, [0, 1, 2]);
         assert_eq!(audio.seek_preroll_ns, 80_000_000);
         assert_eq!(audio.audio.unwrap().sampling_frequency, 48000.0);
@@ -211,7 +211,7 @@ fn empty_elements_with_declared_defaults_use_those_defaults() {
     let mut entry = number(0xd7, 1);
     entry.extend(number(0x73c5, 1));
     entry.extend(number(0x83, 2));
-    entry.extend(element(0x86, b"A_OPUS"));
+    entry.extend(element(0x86, b"A_TEST"));
     entry.extend(element(0xb9, &[]));
     entry.extend(element(0x9c, &[]));
     entry.extend(element(0x23314f, &[]));
@@ -541,7 +541,11 @@ fn singleton_duplicates_missing_fields_unknown_tracks_and_bad_lacing_are_invalid
     );
     assert!(matches!(
         drain(&mut reader(&data)),
-        Err(DemuxError::Invalid("duplicate singleton element"))
+        Err(DemuxError::Timing(TimingError {
+            kind: TimingErrorKind::DuplicateElement,
+            element_id: 0xe7,
+            ..
+        }))
     ));
 }
 
@@ -583,7 +587,10 @@ fn declared_width_versions_scalar_lengths_and_parent_boundaries_are_enforced() {
         let data = document(&track(1, true, &[]), &[], &extra, &[], false);
         assert!(matches!(
             drain(&mut reader(&data)),
-            Err(DemuxError::Invalid(_))
+            Err(DemuxError::Timing(TimingError {
+                kind: TimingErrorKind::InvalidScalar,
+                ..
+            }))
         ));
     }
     let mut data = header(&[]);
@@ -695,7 +702,10 @@ fn timestamp_arithmetic_retains_large_values_and_refuses_overflow() {
     );
     assert!(matches!(
         drain(&mut reader(&data)),
-        Err(DemuxError::Invalid("timestamp overflow"))
+        Err(DemuxError::Timing(TimingError {
+            kind: TimingErrorKind::ArithmeticOverflow,
+            ..
+        }))
     ));
 }
 
@@ -725,7 +735,11 @@ fn zero_duration_is_outside_the_documented_positive_range() {
     );
     assert!(matches!(
         drain(&mut reader(&data)),
-        Err(DemuxError::Invalid(_))
+        Err(DemuxError::Timing(TimingError {
+            kind: TimingErrorKind::InvalidScalar,
+            element_id: 0x4489,
+            ..
+        }))
     ));
 }
 
@@ -922,4 +936,409 @@ fn ignored_additions_still_enforce_skip_limits_boundaries_and_final_eof() {
         drain(&mut reader(&data)),
         Err(DemuxError::Stream(StreamError::Invalid(_)))
     ));
+}
+
+fn opus_track(private: &[u8], delay: Option<u64>, channels: u64) -> Vec<u8> {
+    let mut entry = number(0xd7, 1);
+    entry.extend(number(0x73c5, 1));
+    entry.extend(number(0x83, 2));
+    entry.extend(element(0x86, b"A_OPUS"));
+    entry.extend(element(0x63a2, private));
+    if let Some(delay) = delay {
+        entry.extend(number(0x56aa, delay));
+    }
+    let mut audio = element(0xb5, &48000f64.to_be_bytes());
+    audio.extend(number(0x9f, channels));
+    entry.extend(element(0xe1, &audio));
+    element(0xae, &entry)
+}
+fn opus_head(pre_skip: u16) -> Vec<u8> {
+    let mut head = b"OpusHead".to_vec();
+    head.extend([1, 2]);
+    head.extend(pre_skip.to_le_bytes());
+    head.extend(48000u32.to_le_bytes());
+    head.extend([0, 0, 0]);
+    head
+}
+
+fn initialization_failure(data: &[u8]) -> TimingError {
+    let mut demux = reader(data);
+    for _ in 0..100 {
+        match demux.poll() {
+            Err(DemuxError::Timing(error)) => return error,
+            Err(error) => panic!("unexpected initialization error: {error}"),
+            Ok(DemuxEvent::TracksReady | DemuxEvent::Packet(_) | DemuxEvent::End(_)) => {
+                panic!("invalid initialization exposed tracks, packets or completion")
+            }
+            _ => (),
+        }
+    }
+    panic!("initialization failed to terminate")
+}
+#[test]
+fn malformed_opus_private_is_rejected_before_tracks_or_packets() {
+    let data = document(&opus_track(&[0, 1, 2], Some(0), 2), &[], &[], &[], false);
+    assert_eq!(
+        initialization_failure(&data).kind,
+        TimingErrorKind::OpusHead(unlace::opus::OpusErrorKind::Signature)
+    );
+}
+#[test]
+fn conflicting_opus_delay_and_channels_are_not_silently_accepted() {
+    for (track, kind) in [
+        (
+            opus_track(&opus_head(312), Some(7), 2),
+            TimingErrorKind::CodecDelayMismatch,
+        ),
+        (
+            opus_track(&opus_head(312), Some(6500000), 1),
+            TimingErrorKind::ChannelsMismatch,
+        ),
+    ] {
+        let data = document(&track, &[], &[], &[], false);
+        assert_eq!(initialization_failure(&data).kind, kind);
+    }
+}
+
+fn encoded_offset(data: &[u8], encoded: &[u8]) -> u64 {
+    data.windows(encoded.len())
+        .position(|window| window == encoded)
+        .unwrap() as u64
+}
+#[test]
+fn opus_failures_report_exact_payload_and_conflicting_field_offsets() {
+    for (private, relative, kind) in [
+        (vec![0, 1, 2], 0, unlace::opus::OpusErrorKind::Signature),
+        (
+            b"OpusHead".to_vec(),
+            8,
+            unlace::opus::OpusErrorKind::Truncated,
+        ),
+        (
+            {
+                let mut h = opus_head(0);
+                h[8] = 16;
+                h
+            },
+            8,
+            unlace::opus::OpusErrorKind::UnsupportedVersion,
+        ),
+        (
+            {
+                let mut h = opus_head(0);
+                h[18] = 2;
+                h
+            },
+            18,
+            unlace::opus::OpusErrorKind::UnsupportedMapping,
+        ),
+    ] {
+        let data = document(&opus_track(&private, Some(0), 2), &[], &[], &[], false);
+        let element_ = element(0x63a2, &private);
+        let start = encoded_offset(&data, &element_) + (element_.len() - private.len()) as u64;
+        assert!(
+            matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,element_id:0x63a2,kind:TimingErrorKind::OpusHead(actual)})) if offset==start+relative && actual==kind)
+        );
+    }
+    for (track, encoded, kind) in [
+        (
+            opus_track(&opus_head(312), Some(7), 2),
+            number(0x56aa, 7),
+            TimingErrorKind::CodecDelayMismatch,
+        ),
+        (
+            opus_track(&opus_head(0), Some(0), 1),
+            number(0x9f, 1),
+            TimingErrorKind::ChannelsMismatch,
+        ),
+        (
+            opus_track(
+                &{
+                    let mut h = opus_head(0);
+                    h[12..16].fill(0);
+                    h
+                },
+                Some(0),
+                2,
+            ),
+            element(0xb5, &48000f64.to_be_bytes()),
+            TimingErrorKind::InputRateMismatch,
+        ),
+    ] {
+        let data = document(&track, &[], &[], &[], false);
+        let expected = encoded_offset(&data, &encoded);
+        assert!(
+            matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,kind:actual,..})) if offset==expected && actual==kind)
+        );
+    }
+}
+#[test]
+fn opus_delay_quantization_is_explicit_and_pre_skip_is_exact_samples() {
+    for (samples, delay, difference) in [
+        (0, 0, 0),
+        (1, 20833, -16000),
+        (1, 20834, 32000),
+        (2, 41666, -32000),
+        (2, 41667, 16000),
+        (3, 62500, 0),
+        (312, 6500000, 0),
+        (65535, 1365312500, 0),
+    ] {
+        let data = document(
+            &opus_track(&opus_head(samples), Some(delay), 2),
+            &[],
+            &[],
+            &[],
+            false,
+        );
+        let mut demux = reader(&data);
+        drain(&mut demux).unwrap();
+        let timing = demux.tracks()[0].opus_timing.unwrap();
+        assert_eq!(timing.pre_skip_samples(), samples);
+        assert_eq!(
+            timing.pre_skip_ns_numerator(),
+            u64::from(samples) * 1_000_000_000
+        );
+        assert_eq!(
+            timing.delay_precision(),
+            if difference == 0 {
+                DelayPrecision::Exact
+            } else {
+                DelayPrecision::Quantized { difference }
+            }
+        );
+    }
+    for delay in [0, 20832, 20835, u64::MAX] {
+        let data = document(
+            &opus_track(&opus_head(1), Some(delay), 2),
+            &[],
+            &[],
+            &[],
+            false,
+        );
+        assert!(matches!(
+            drain(&mut reader(&data)),
+            Err(DemuxError::Timing(TimingError {
+                kind: TimingErrorKind::CodecDelayMismatch,
+                ..
+            }))
+        ));
+    }
+    // An unwritten zero default is semantically zero; a nonzero missing delay conflicts.
+    let data = document(&opus_track(&opus_head(0), None, 2), &[], &[], &[], false);
+    drain(&mut reader(&data)).unwrap();
+    let data = document(&opus_track(&opus_head(312), None, 2), &[], &[], &[], false);
+    let entry = encoded_offset(&data, &opus_track(&opus_head(312), None, 2));
+    assert!(
+        matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,element_id:0x56aa,kind:TimingErrorKind::CodecDelayMismatch})) if offset==entry)
+    );
+}
+#[test]
+fn scalar_timing_failures_preserve_source_offsets_and_poison_continuation() {
+    for (id, bytes) in [(0x2ad7b1, vec![0; 9]), (0x4489, vec![0; 3])] {
+        let encoded = element(id, &bytes);
+        let data = document(&track(1, true, &[]), &[], &encoded, &[], false);
+        let expected = encoded_offset(&data, &encoded);
+        let mut demux = reader(&data);
+        assert!(
+            matches!(drain(&mut demux),Err(DemuxError::Timing(TimingError {offset,element_id,kind:TimingErrorKind::InvalidScalar})) if offset==expected && element_id==id)
+        );
+        assert!(matches!(demux.poll(), Err(DemuxError::Failed)));
+    }
+    let mut cluster = number(0xe7, 0);
+    let padding = element(0x75a2, &[0; 9]);
+    let mut group = element(0xa1, &block(1, 0, 0, &[1]));
+    group.extend(&padding);
+    cluster.extend(element(0xa0, &group));
+    let data = document(
+        &track(1, true, &[]),
+        &element(CLUSTER, &cluster),
+        &[],
+        &[],
+        false,
+    );
+    let expected = encoded_offset(&data, &padding);
+    assert!(
+        matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,element_id:0x75a2,kind:TimingErrorKind::InvalidScalar})) if offset==expected)
+    );
+}
+#[test]
+fn signed_block_padding_can_span_laced_frames_without_changing_bytes() {
+    for padding in [25i64, -25] {
+        let mut group = element(0xa1, &block(1, 0, 4, &[1, 7, 8]));
+        group.extend(element(0x75a2, &padding.to_be_bytes()));
+        let mut cluster = number(0xe7, 0);
+        cluster.extend(element(0xa0, &group));
+        let data = document(
+            &track(1, true, &number(0x23e383, 20)),
+            &element(CLUSTER, &cluster),
+            &[],
+            &[],
+            false,
+        );
+        let mut demux = reader(&data);
+        let mut frames = Vec::new();
+        let mut notifications = Vec::new();
+        loop {
+            match demux.poll().unwrap() {
+                DemuxEvent::Packet(packet) => {
+                    assert_eq!(packet.block_discard_padding_ns, padding);
+                    frames.push(packet.data.to_vec());
+                    notifications.push(packet.discard_padding_ns);
+                }
+                DemuxEvent::End(_) => break,
+                _ => (),
+            }
+        }
+        assert_eq!(frames, [vec![7], vec![8]]);
+        assert_eq!(
+            notifications,
+            if padding > 0 {
+                vec![0, 25]
+            } else {
+                vec![-25, 0]
+            }
+        );
+    }
+}
+#[test]
+fn padding_beyond_known_whole_block_duration_is_a_located_error() {
+    for padding in [41i64, -41, i64::MIN, i64::MAX] {
+        let encoded = element(0x75a2, &padding.to_be_bytes());
+        let mut group = element(0xa1, &block(1, 0, 4, &[1, 7, 8]));
+        group.extend(&encoded);
+        let mut cluster = number(0xe7, 0);
+        cluster.extend(element(0xa0, &group));
+        let data = document(
+            &track(1, true, &number(0x23e383, 20)),
+            &element(CLUSTER, &cluster),
+            &[],
+            &[],
+            false,
+        );
+        let expected = encoded_offset(&data, &encoded);
+        assert!(
+            matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,element_id:0x75a2,kind:TimingErrorKind::PaddingExceedsDuration})) if offset==expected)
+        );
+    }
+}
+
+#[test]
+fn opus_missing_initialization_and_audio_are_typed_with_enclosing_offsets() {
+    for missing_private in [true, false] {
+        let mut entry = number(0xd7, 1);
+        entry.extend(number(0x73c5, 1));
+        entry.extend(number(0x83, 2));
+        entry.extend(element(0x86, b"A_OPUS"));
+        let (id, kind) = if missing_private {
+            let mut audio = element(0xb5, &48000f64.to_be_bytes());
+            audio.extend(number(0x9f, 2));
+            entry.extend(element(0xe1, &audio));
+            (0x63a2, TimingErrorKind::MissingOpusHead)
+        } else {
+            entry.extend(element(0x63a2, &opus_head(0)));
+            (0xe1, TimingErrorKind::MissingAudio)
+        };
+        let track = element(0xae, &entry);
+        let data = document(&track, &[], &[], &[], false);
+        let expected = encoded_offset(&data, &track);
+        assert!(
+            matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,element_id,kind:actual})) if offset==expected && element_id==id && actual==kind)
+        );
+    }
+}
+#[test]
+fn recommended_preroll_is_not_a_mandatory_rejection_and_raw_value_is_preserved() {
+    for preroll in [0, 80_000_000, u64::MAX] {
+        let full = opus_track(&opus_head(0), Some(0), 2);
+        // This short fixture uses one-byte size syntax; rebuild its payload to
+        // add the field in a different order without altering an existing field.
+        let mut payload = number(0x56bb, preroll);
+        payload.extend_from_slice(&full[2..]);
+        let data = document(&element(0xae, &payload), &[], &[], &[], false);
+        let mut demux = reader(&data);
+        drain(&mut demux).unwrap();
+        assert_eq!(demux.tracks()[0].seek_preroll_ns, preroll);
+        let head = demux.tracks()[0].opus_head().unwrap().unwrap();
+        assert_eq!(head.pre_skip_samples(), 0);
+    }
+}
+
+#[test]
+fn opus_validation_survives_wouldblock_at_every_input_position() {
+    let mut cluster = number(0xe7, 0);
+    cluster.extend(element(0xa3, &block(1, 0, 0, &[1, 2])));
+    let data = document(
+        &opus_track(&opus_head(312), Some(6_500_000), 2),
+        &element(CLUSTER, &cluster),
+        &[],
+        &[],
+        false,
+    );
+    let expected = drain(&mut reader(&data)).unwrap();
+    for position in 0..=data.len() {
+        let mut input = source(&data, 1);
+        input.fail = Some((position, io::ErrorKind::WouldBlock));
+        let mut demux = Demuxer::new(input, AudioSelection::First, DemuxLimits::default()).unwrap();
+        assert_eq!(drain(&mut demux).unwrap(), expected);
+        assert_eq!(
+            demux.tracks()[0].opus_timing.unwrap().pre_skip_samples(),
+            312
+        );
+    }
+}
+#[test]
+fn duplicate_private_and_malformed_preroll_report_the_actual_field_start() {
+    let initial = opus_track(&opus_head(0), Some(0), 2);
+    for (extra, id, kind) in [
+        (
+            element(0x63a2, &opus_head(0)),
+            0x63a2,
+            TimingErrorKind::DuplicateElement,
+        ),
+        (
+            element(0x56bb, &[0; 9]),
+            0x56bb,
+            TimingErrorKind::InvalidScalar,
+        ),
+    ] {
+        let mut payload = initial[2..].to_vec();
+        payload.extend(&extra);
+        let data = document(&element(0xae, &payload), &[], &[], &[], false);
+        let expected = data
+            .windows(extra.len())
+            .rposition(|window| window == extra)
+            .unwrap() as u64;
+        assert!(
+            matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,element_id,kind:actual})) if offset==expected && element_id==id && actual==kind)
+        );
+    }
+}
+
+#[test]
+fn duration_overflow_and_opus_track_type_identify_their_source_fields() {
+    let duration = number(0x9b, u64::MAX);
+    let mut group = element(0xa1, &block(1, 0, 0, &[1]));
+    group.extend(&duration);
+    let mut cluster = number(0xe7, 0);
+    cluster.extend(element(0xa0, &group));
+    let data = document(
+        &track(1, true, &[]),
+        &element(CLUSTER, &cluster),
+        &number(0x2ad7b1, u64::MAX),
+        &[],
+        false,
+    );
+    let expected = encoded_offset(&data, &duration);
+    assert!(
+        matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,element_id:0x9b,kind:TimingErrorKind::ArithmeticOverflow})) if offset==expected)
+    );
+    let mut full = opus_track(&opus_head(0), Some(0), 2);
+    let position = encoded_offset(&full, &number(0x83, 2)) as usize;
+    full[position + 2] = 1;
+    let data = document(&full, &[], &[], &[], false);
+    let expected = encoded_offset(&data, &number(0x83, 1));
+    assert!(
+        matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,element_id:0x83,kind:TimingErrorKind::OpusTrackType})) if offset==expected)
+    );
 }

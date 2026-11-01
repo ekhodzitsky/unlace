@@ -30,8 +30,9 @@ then emitted as borrowed frame slices.
 
 A BlockGroup retains its block until the group ends, so ReferenceBlock,
 BlockDuration and signed DiscardPadding appearing after Block cannot be lost.
-Positive padding applies to the last laced frame, negative padding to the first.
-Other laced frames carry zero padding. Bytes remain intact even when padding is
+Whole-block signed padding is available on every laced frame. A separate
+once-per-block notification appears on the last frame for positive padding or
+first for negative padding; padding can span more than that one frame. Bytes remain intact even when padding is
 nonzero. Packet block offsets identify the original Block/SimpleBlock element;
 all laced frames share the same offset and carry their index/count explicitly.
 
@@ -59,7 +60,10 @@ from the first frame. The shared raw origin and lace order remain available to
 a consumer with codec durations. BlockDuration is exposed for the whole block
 in nanoseconds; it is not divided into invented per-frame durations. These
 contracts follow [RFC 9559 sections 10 and 11](https://www.rfc-editor.org/rfc/rfc9559.html#section-10).
-Independent decoding must still qualify first/last audio samples and trim rules.
+The [Opus timing contract](opus-timing.md) specifies header validation, exact
+pre-skip, integer-delay quantization and located errors. Independent mono/stereo
+start/end sample qualification now passes within its stated scope; broader
+decoder/preroll coverage remains open.
 
 ## Supported and excluded structure
 

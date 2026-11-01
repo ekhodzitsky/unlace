@@ -44,8 +44,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     hex(&mut output, &track.codec_private)?;
                     writeln!(
                         output,
-                        "\",\"codec_delay_ns\":{},\"seek_preroll_ns\":{},\"max_block_addition_id\":{}}}",
-                        track.codec_delay_ns, track.seek_preroll_ns, track.max_block_addition_id
+                        "\",\"codec_delay_ns\":{},\"seek_preroll_ns\":{},\"max_block_addition_id\":{},\"opus_pre_skip_samples\":{}}}",
+                        track.codec_delay_ns,
+                        track.seek_preroll_ns,
+                        track.max_block_addition_id,
+                        track.opus_timing.map_or_else(
+                            || "null".to_owned(),
+                            |value| value.pre_skip_samples().to_string()
+                        )
                     )?;
                 }
             }
@@ -61,11 +67,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 write!(
                     output,
-                    ",\"block_timestamp_ns\":{},\"lace_index\":{},\"lace_count\":{},\"discard_padding_ns\":{},\"data_hex\":\"",
+                    ",\"block_timestamp_ns\":{},\"lace_index\":{},\"lace_count\":{},\"discard_padding_ns\":{},\"block_discard_padding_ns\":{},\"data_hex\":\"",
                     packet.block_timestamp_ns,
                     packet.lace_index,
                     packet.lace_count,
-                    packet.discard_padding_ns
+                    packet.discard_padding_ns,
+                    packet.block_discard_padding_ns
                 )?;
                 hex(&mut output, packet.data)?;
                 writeln!(output, "\"}}")?;

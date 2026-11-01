@@ -81,8 +81,8 @@ Those generated files do not substitute for the producer corpus above.
 Precise timestamp equivalence is a separate question. FFprobe's millisecond
 output quantizes an earlier generated Opus file's first timestamp to -7 ms,
 where exact raw 0 ms minus CodecDelay 6.5 ms yields -6.5 ms. No exact timing or
-sample-level trim equivalence follows from matching packet bytes. Independent
-mono/stereo decoding and conflicting timing-metadata checks remain required.
+sample-level trim equivalence follows from matching packet bytes. Independent mono/stereo decoding and located timing-metadata checks are now
+documented in [opus-timing.md](opus-timing.md), within their own limited scope.
 
 This small corpus does not establish multi-hour behavior, broad browser/YouTube
 coverage, sustained fuzzing, seek correctness, memory/allocation measurements or

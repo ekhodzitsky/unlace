@@ -69,7 +69,7 @@ millisecond time base rounds the first Opus timestamp differently from exact
 nanosecond CodecDelay subtraction; no exact timing equivalence is claimed.
 Raw media, manifests and command evidence remain local under ignored runs/.
 
-All current repository gates pass locally on Linux with Rust 1.89.0: 53
+The preceding packet-qualification gates passed locally on Linux with Rust 1.89.0: 53
 integration tests and two doctests in debug/release, strict all-target Clippy,
 formatting, warning-free rustdoc and zero third-party dependencies. This evidence
 does not close the outstanding corpus, timing, trim, fuzz or performance gates.
@@ -84,3 +84,27 @@ MaxBlockAdditionID handling and bounded unselected-track additions skipping.
 Selected additions still fail before packet emission. See the sanitized
 [packet report](packet-qualification.md) for source rights, input hashes, exact
 versions, method and remaining limits. Raw source/profiles/results stay ignored.
+
+Opus initialization/timing adds six header tests and twelve integrated regressions.
+They exercise every header truncation/magic byte, all version bytes, all 65,536
+stream/coupling count pairs and all u16 pre-skip values, explicit mapping/rate/gain
+fields, unsupported mappings, exact/quantized delays, located conflicts/duplicates,
+missing initialization/Audio, signed padding across laces, known-duration excess,
+and WouldBlock at every position of an Opus-initialized fixture. Generic container
+fixtures use A_TEST for deliberately invented packet/private bytes, preserving
+their original boundary/timestamp checks without claiming they are valid Opus.
+
+External-only libopus 1.6.1 qualification compares every decoded PCM byte from two
+paths for original 1.03-second mono/stereo sources. Initial pre-skip 312 and final
+padding 168 samples yield exactly 49,440 frames/channel and identical complete,
+first-64 and last-64 sample hashes. The reference derives trim independently from
+libavformat WebM extradata/packet side data. An unfavorable Ogg stream-copy result
+(49,608 frames) is retained rather than normalized into the expected result. See
+[opus-timing.md](opus-timing.md) for input/output hashes, method, API changes and
+scope. No codec tool/library is an ordinary build/test dependency.
+
+Final Opus timing gates passed on Linux with Rust 1.89.0: 71 integration tests
+and three doctests in debug and release, strict all-target Clippy, formatting,
+warning-free rustdoc and the zero-dependency check. The final audio manifest
+example was rebuilt; decoded PCM qualification and all three real producer
+packet comparisons passed again against that final implementation.

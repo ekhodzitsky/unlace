@@ -4,6 +4,8 @@
 //! End to check final structure; receiving packets alone does not prove success.
 //! The supported subset and explicit exclusions are described in project docs.
 mod schema;
+mod timing;
+pub use timing::{DelayPrecision, OpusTiming, TimingError, TimingErrorKind};
 
 use crate::{
     ElementSize,
@@ -67,6 +69,8 @@ pub struct Track {
     pub codec_id: String,
     /// Unmodified codec initialization bytes.
     pub codec_private: Vec<u8>,
+    /// Validated Opus pre-skip/delay relation for A_OPUS; None for other codecs.
+    pub opus_timing: Option<OpusTiming>,
     /// CodecDelay in nanoseconds. Packet timestamps already subtract it once.
     pub codec_delay_ns: u64,
     /// Required decoder preroll in nanoseconds; no decoding is performed here.
@@ -82,6 +86,19 @@ pub struct Track {
     pub enabled: bool,
     /// Audio settings, present for audio tracks only.
     pub audio: Option<AudioParameters>,
+}
+impl Track {
+    /// Borrow the parsed OpusHead for A_OPUS, or None for another codec. Tracks
+    /// produced by the demuxer have already passed this validation. Manually
+    /// constructed Track values have their header bytes checked again. This
+    /// accessor alone does not validate their container timing relations.
+    pub fn opus_head(&self) -> Result<Option<crate::opus::OpusHead<'_>>, crate::opus::OpusError> {
+        if self.codec_id == "A_OPUS" {
+            crate::opus::parse_opus_head(&self.codec_private).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 /// Container audio parameters; these do not promise decoded output properties.
@@ -139,9 +156,15 @@ pub struct Packet<'a> {
     pub default_duration_ns: Option<u64>,
     /// Total BlockDuration in nanoseconds, when supplied, for the whole block.
     pub block_duration_ns: Option<i128>,
-    /// Signed DiscardPadding, in nanoseconds. Positive padding belongs to the
-    /// last laced frame, negative padding to the first; zero elsewhere.
+    /// Whole-block signed padding reported once: on the last frame if positive,
+    /// first if negative, zero elsewhere. It may span multiple laced frames;
+    /// this is not an instruction to trim only this frame. See the block field.
     pub discard_padding_ns: i64,
+    /// Original whole-block signed DiscardPadding on every laced frame.
+    /// Positive means discard from the block end, negative from its beginning.
+    /// Consumers must apply it once per block, buffering as needed, not once
+    /// per packet. Encoded bytes are never trimmed by this library.
+    pub block_discard_padding_ns: i64,
     /// SimpleBlock flag or absence of ReferenceBlock in a BlockGroup.
     pub keyframe: bool,
     /// SimpleBlock discardable flag; false for BlockGroup.
@@ -169,6 +192,9 @@ pub enum DemuxEvent<'a> {
 /// terminal and further polling returns Failed.
 #[derive(Debug)]
 pub enum DemuxError {
+    /// Malformed, conflicting or unsupported timing/Opus initialization metadata
+    /// with the exact source element or payload offset.
+    Timing(TimingError),
     /// Low-level syntax, source, truncation or framing resource error.
     Stream(stream::StreamError),
     /// Invalid block syntax or exceeded block limits.
@@ -189,6 +215,7 @@ pub enum DemuxError {
 impl fmt::Display for DemuxError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Timing(error) => write!(f, "container {error}"),
             Self::Stream(error) => write!(f, "container framing: {error}"),
             Self::Block(error) => write!(f, "container block: {error}"),
             Self::Invalid(reason) => write!(f, "invalid container: {reason}"),
@@ -203,6 +230,7 @@ impl fmt::Display for DemuxError {
 impl std::error::Error for DemuxError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
+            Self::Timing(error) => Some(error),
             Self::Stream(error) => Some(error),
             Self::Block(error) => Some(error),
             _ => None,
@@ -251,6 +279,7 @@ impl Default for HeaderState {
 struct TrackState {
     track: Option<Track>,
     output_frequency: Option<f64>,
+    offsets: timing::Offsets,
 }
 #[derive(Default)]
 struct Group {
@@ -259,6 +288,8 @@ struct Group {
     reference: bool,
     duration: Option<u64>,
     padding: i64,
+    padding_header: Option<Header>,
+    duration_header: Option<Header>,
 }
 struct Packets {
     ranges: [Range<usize>; 256],
@@ -441,6 +472,7 @@ impl<R: Read> Demuxer<R> {
                     default_duration_ns: track.default_duration_ns,
                     block_duration_ns: pending.duration,
                     discard_padding_ns,
+                    block_discard_padding_ns: pending.padding,
                     keyframe: pending.keyframe,
                     discardable: pending.discardable,
                     invisible: pending.invisible,
@@ -523,9 +555,25 @@ impl<R: Read> Demuxer<R> {
             &mut self.contexts[self.depth - 1].seen
         };
         if *seen & mask != 0 && !schema::repeatable(id) {
+            if timing::field(id) {
+                return Err(timing::failure(
+                    header.offset,
+                    id,
+                    TimingErrorKind::DuplicateElement,
+                ));
+            }
             return Err(DemuxError::Invalid("duplicate singleton element"));
         }
         *seen |= mask;
+        match id {
+            0x63a2 => self.building_track.offsets.private = Some(header),
+            0x83 => self.building_track.offsets.track_type = Some(header),
+            0x56aa => self.building_track.offsets.delay = Some(header),
+            0x9f => self.building_track.offsets.channels = Some(header),
+            0xb5 => self.building_track.offsets.frequency = Some(header),
+            0xe1 => self.building_track.offsets.audio = header.offset,
+            _ => (),
+        }
         if matches!(id, 0xbf | 0x6d80 | 0x41e4 | 0xe2 | 0xa4) {
             return Err(DemuxError::Unsupported(match id {
                 0xbf => "CRC-32 verification",
@@ -567,6 +615,7 @@ impl<R: Read> Demuxer<R> {
                         track_type: 0,
                         codec_id: String::new(),
                         codec_private: Vec::new(),
+                        opus_timing: None,
                         codec_delay_ns: 0,
                         seek_preroll_ns: 0,
                         max_block_addition_id: 0,
@@ -576,6 +625,10 @@ impl<R: Read> Demuxer<R> {
                         audio: None,
                     }),
                     output_frequency: None,
+                    offsets: timing::Offsets {
+                        entry: header.offset,
+                        ..Default::default()
+                    },
                 };
             }
             0xe1 => {
@@ -649,7 +702,24 @@ impl<R: Read> Demuxer<R> {
             if id == 0xa3 {
                 self.prepare_packets(header, true)?;
             } else if id != 0xa1 {
-                self.scalar(id)?;
+                self.scalar(id).map_err(|error| match error {
+                    DemuxError::Invalid(_) if timing::field(id) => {
+                        timing::failure(header.offset, id, TimingErrorKind::InvalidScalar)
+                    }
+                    other => other,
+                })?;
+                if id == 0x75a2 {
+                    self.group
+                        .as_mut()
+                        .ok_or(DemuxError::Invalid("padding outside group"))?
+                        .padding_header = Some(header);
+                }
+                if id == 0x9b {
+                    self.group
+                        .as_mut()
+                        .ok_or(DemuxError::Invalid("duration outside group"))?
+                        .duration_header = Some(header);
+                }
             }
             return Ok(None);
         }
@@ -727,11 +797,29 @@ impl<R: Read> Demuxer<R> {
                 {
                     return Err(DemuxError::Invalid("duplicate track number or UID"));
                 }
+                if track.codec_id == "A_OPUS" && track.track_type != 2 {
+                    return Err(timing::failure(
+                        self.building_track
+                            .offsets
+                            .track_type
+                            .map_or(header.offset, |h| h.offset),
+                        0x83,
+                        TimingErrorKind::OpusTrackType,
+                    ));
+                }
                 if track.track_type == 2 {
-                    let audio = track
-                        .audio
-                        .as_mut()
-                        .ok_or(DemuxError::Invalid("missing Audio settings"))?;
+                    let is_opus = track.codec_id == "A_OPUS";
+                    let audio = track.audio.as_mut().ok_or_else(|| {
+                        if is_opus {
+                            timing::failure(
+                                self.building_track.offsets.entry,
+                                0xe1,
+                                TimingErrorKind::MissingAudio,
+                            )
+                        } else {
+                            DemuxError::Invalid("missing Audio settings")
+                        }
+                    })?;
                     audio.output_sampling_frequency = self
                         .building_track
                         .output_frequency
@@ -739,6 +827,7 @@ impl<R: Read> Demuxer<R> {
                 } else if track.audio.is_some() {
                     return Err(DemuxError::Invalid("Audio settings on nonaudio track"));
                 }
+                track.opus_timing = timing::validate(&track, self.building_track.offsets)?;
                 self.tracks
                     .try_reserve(1)
                     .map_err(|_| DemuxError::Limit("allocation"))?;
@@ -954,6 +1043,13 @@ impl<R: Read> Demuxer<R> {
     }
 
     fn prepare_packets(&mut self, header: Header, simple: bool) -> Result<(), DemuxError> {
+        let arithmetic = || {
+            timing::failure(
+                header.offset,
+                header.id.value(),
+                TimingErrorKind::ArithmeticOverflow,
+            )
+        };
         let parsed = block::parse_block(
             &self.block_data,
             if simple {
@@ -977,11 +1073,43 @@ impl<R: Read> Demuxer<R> {
             .ok_or(DemuxError::Invalid("missing Cluster Timestamp"))?;
         let timestamp = (i128::from(cluster) + i128::from(parsed.relative_timestamp()))
             .checked_mul(i128::from(self.info.timestamp_scale_ns))
-            .ok_or(DemuxError::Invalid("timestamp overflow"))?;
+            .ok_or_else(arithmetic)?;
         // Validate presentation arithmetic even for unselected tracks.
         timestamp
             .checked_sub(i128::from(track.codec_delay_ns))
-            .ok_or(DemuxError::Invalid("timestamp overflow"))?;
+            .ok_or_else(arithmetic)?;
+        let count = parsed.frames().len();
+        let group = self.group.as_ref();
+        let duration = match group.and_then(|group| group.duration) {
+            Some(duration) => Some(
+                i128::from(duration)
+                    .checked_mul(i128::from(self.info.timestamp_scale_ns))
+                    .ok_or_else(|| {
+                        timing::failure(
+                            group
+                                .and_then(|g| g.duration_header)
+                                .map_or(header.offset, |h| h.offset),
+                            0x9b,
+                            TimingErrorKind::ArithmeticOverflow,
+                        )
+                    })?,
+            ),
+            None => None,
+        };
+        let known_duration = duration.or_else(|| {
+            track
+                .default_duration_ns
+                .map(|d| i128::from(d) * count as i128)
+        });
+        if let (Some(group), Some(duration)) = (group, known_duration)
+            && i128::from(group.padding).abs() > duration
+        {
+            return Err(timing::failure(
+                group.padding_header.map_or(header.offset, |h| h.offset),
+                0x75a2,
+                TimingErrorKind::PaddingExceedsDuration,
+            ));
+        }
         if self.selected != Some(track_index) {
             return Ok(());
         }
@@ -990,31 +1118,21 @@ impl<R: Read> Demuxer<R> {
         }
         let mut start =
             self.block_data.len() - parsed.frames().map(|frame| frame.len()).sum::<usize>();
-        let count = parsed.frames().len();
         let mut ranges = std::array::from_fn(|_| 0..0);
         for (index, frame) in parsed.frames().enumerate() {
             let end = start + frame.len();
             ranges[index] = start..end;
             start = end;
         }
-        let group = self.group.as_ref();
-        let duration = match group.and_then(|group| group.duration) {
-            Some(duration) => Some(
-                i128::from(duration)
-                    .checked_mul(i128::from(self.info.timestamp_scale_ns))
-                    .ok_or(DemuxError::Invalid("duration overflow"))?,
-            ),
-            None => None,
-        };
         // Check every future laced timestamp now, so poll's borrowing path needs
         // no fallible arithmetic and cannot expose wrapped or fabricated times.
         let presentation = timestamp
             .checked_sub(i128::from(track.codec_delay_ns))
-            .ok_or(DemuxError::Invalid("timestamp overflow"))?;
+            .ok_or_else(arithmetic)?;
         if let Some(duration) = track.default_duration_ns {
             presentation
                 .checked_add((count - 1) as i128 * i128::from(duration))
-                .ok_or(DemuxError::Invalid("timestamp overflow"))?;
+                .ok_or_else(arithmetic)?;
         }
         self.packets = Some(Packets {
             ranges,

@@ -4,6 +4,19 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Validate A_OPUS initialization, channel/rate/delay relations and exact pre-skip
+  samples; expose compatible OpusHead fields without decoding or changing bytes.
+  Report integer-nanosecond quantization explicitly instead of silently rounding.
+- Add located typed Timing errors for malformed/conflicting initialization and
+  timing metadata. Preserve whole-block signed padding across all laced frames;
+  refuse padding beyond a known block duration before emitting packets.
+- Qualify exact mono/stereo decoded start/end spans with independent libavformat
+  trim metadata and the same external libopus decoder, with no Cargo dependency.
+- Pending API impact: Track literals require `opus_timing`, Packet literals need
+  `block_discard_padding_ns`, and DemuxError matches need Timing. Generic timing
+  Invalid errors become located Timing causes. Accumulate these changes for the
+  next pre-1.0 minor source milestone; the original 0.1.0 stays unpublished.
+
 - Preserve MaxBlockAdditionID track declarations and safely skip bounded opaque
   BlockAdditions on unselected tracks. Selected-track additions remain explicit
   unsupported errors, including when additions precede the group's Block.
