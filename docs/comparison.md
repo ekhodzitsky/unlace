@@ -3,8 +3,9 @@
 Reviewed 2026-11-01 from primary documentation and selected APIs. This is an
 initial capability review, not execution evidence or a complete security audit.
 Repository branches may change; exact revisions must be pinned before trials.
-Unlace has integer primitives and an unreleased structural streaming core; it
-is not a qualified demuxer replacement.
+Unlace has an unreleased bounded sequential audio subset; it is not a qualified
+demuxer replacement. Current synthetic packet checks do not establish the full
+corpus, timing, decoded trim or performance contract.
 
 | Project | Language | Observed capability | Mechanism worth evaluating |
 | --- | --- | --- | --- |

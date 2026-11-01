@@ -318,6 +318,22 @@ impl<'a, R: Read> Reader<'a, R> {
         self.offset
     }
 
+    // The document layer applies declared maxima after the finite EBML header
+    // ends, before any body header bytes have been read.
+    pub(crate) fn set_width_limits(&mut self, id: u8, size: u8) -> Result<(), StreamError> {
+        if !(1..=4).contains(&id)
+            || !(1..=8).contains(&size)
+            || self.header_len != 0
+            || self.pending.is_some()
+            || self.leaf.is_some()
+        {
+            return Err(StreamError::Configuration);
+        }
+        self.limits.max_id_width = id;
+        self.limits.max_size_width = size;
+        Ok(())
+    }
+
     /// Recover the owned source. Lookahead bytes may already have been consumed;
     /// this is not a restart or checkpoint operation.
     pub fn into_inner(self) -> R {

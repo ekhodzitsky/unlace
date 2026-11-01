@@ -2,7 +2,8 @@
 //!
 //! Provides allocation-free EBML integer parsing, schema-driven incremental
 //! framing in [`stream`] and individual Block/SimpleBlock parsing in [`block`].
-//! Complete container demuxing, packet iteration, seeking and writing are not
+//! Sequential selected-audio packet events are available in [`demux`]. The
+//! supported subset remains under qualification; seeking and writing are not
 //! implemented.
 //!
 //! ```
@@ -22,6 +23,8 @@ use std::fmt;
 pub mod stream;
 
 pub mod block;
+
+pub mod demux;
 
 /// A complete value or an incomplete prefix. Input is never mutated or retained.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

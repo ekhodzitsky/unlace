@@ -47,7 +47,10 @@ all lacing modes, packet timestamps, CodecPrivate, CodecDelay, SeekPreRoll and
 DiscardPadding. General Matroska extensions must be supported explicitly or
 rejected/skipped according to a documented rule. Writing containers is a separate
 capability and must distinguish live output from durably finalized indexed files.
-These are target contracts, not implemented features.
+Sequential audio events now integrate the core and block parser under the
+explicit [demuxing subset](demuxing.md). End-to-end corpus qualification, seeking
+and writing remain unfinished; the target contracts are broader than current
+verified capability.
 
 ## Evidence for decisions
 

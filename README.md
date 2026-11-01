@@ -2,9 +2,9 @@
 
 Unlace is a private Rust project for streaming WebM and Matroska demuxing.
 The **0.1.0 source milestone** provides allocation-free EBML integer parsing.
-Unreleased work adds schema-driven incremental framing over `Read` and individual
-Block/SimpleBlock parsing. Container-level audio packet iteration is not available
-yet.
+Unreleased work adds bounded sequential audio packet events over `Read`, with
+track selection and all block lacing modes. This early subset remains under
+qualification; it is not a general or production-qualified Matroska reader.
 
 [Design](docs/design.md) · [Competitors](docs/comparison.md) · [Verification](docs/verification.md)
 
@@ -43,15 +43,25 @@ For sequential framing, run `cargo run --offline --locked --example stream_ebml`
 The [streaming contract](docs/streaming.md) explains caller-provided schemas,
 zero-allocation payload chunks, `WouldBlock` continuation, final source EOF and
 resource limits. The [block contract](docs/blocks.md) covers standalone frame
-splitting for all lacing modes. These cores do not yet validate a WebM document.
+splitting for all lacing modes. For integrated sequential audio, run:
+
+```sh
+cargo run --offline --locked --example audio_packets -- INPUT.webm
+cargo run --offline --locked --example audio_packets -- INPUT.webm 2
+```
+
+The [demuxing contract](docs/demuxing.md) defines supported elements, borrowed
+packet lifetimes, timestamp uncertainty for laced frames, final EOF evidence
+and explicit unsupported features. The example emits a correctness manifest;
+it does not decode audio or benchmark throughput.
 
 ## Existing alternatives
 
 | Library | Choose it for | Current unlace boundary |
 | --- | --- | --- |
-| [matroska-demuxer](https://github.com/hasenbanck/matroska-demuxer) | Standalone dependency-free Rust demuxing over Read + Seek | Unlace has no demuxer yet |
+| [matroska-demuxer](https://github.com/hasenbanck/matroska-demuxer) | Standalone dependency-free Rust demuxing over Read + Seek | Unlace's sequential subset remains under qualification |
 | [Symphonia](https://docs.rs/symphonia/latest/symphonia/default/formats/struct.MkvReader.html) | Rust track/packet/seek APIs within an audio framework | Unlace has no codec framework |
-| [libwebm](https://github.com/webmproject/libwebm) | C++ parsing/muxing and incremental parser APIs | Unlace is a Rust foundation, not a qualified replacement |
+| [libwebm](https://github.com/webmproject/libwebm) | C++ parsing/muxing and incremental parser APIs | Unlace is not a qualified replacement |
 
 [The comparison](docs/comparison.md) records further competitors, primary
 sources and the capabilities we intend to evaluate. Superiority is a project
@@ -70,8 +80,11 @@ There are no representative container benchmarks or coverage measurements yet.
 The [qualification protocol](docs/qualification.md) defines equivalent-work
 checks required before performance comparisons. No numerical advantage is claimed.
 
-Unlace does not yet read track metadata, iterate packets from containers, seek
-or write containers. It does not decode Opus, fetch URLs or recognize speech.
+Unlace does not yet seek or write containers. The sequential reader explicitly
+rejects unsupported transformations, CRC-32 and several general Matroska features.
+Real MediaRecorder/YouTube packet equivalence, independent decoded trim checks
+and matched performance trials remain unfinished. It does not decode Opus,
+fetch URLs or recognize speech.
 The repository is private, package publication is disabled, hosted Actions are
 disabled and no release artifact is published. A distribution license has not
 been selected. Downloads, docs.rs and CI badges therefore do not apply; coverage

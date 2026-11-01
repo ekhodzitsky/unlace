@@ -9,8 +9,8 @@ Integer tests cover every supported width, all prefixes of representative
 headers, reserved/noncanonical IDs, sentinel sizes, nonminimal legal sizes,
 the RFC 9559 0x80 update and exhaustive one/two-byte size inputs. Production
 parsing uses bounded loops, does not allocate and returns typed errors.
-No end-to-end demuxing, hostile container corpus or representative performance
-comparison has passed yet because those capabilities are not implemented.
+Sequential synthetic demux checks are described below. Full hostile-media corpus
+and representative performance qualification remain unfinished.
 
 The dependency check reads locked offline Cargo metadata and rejects dependency
 declarations in every category. Regular tests and rustdoc need no third-party
@@ -45,5 +45,31 @@ lengths/deltas, lace-work and size limits. Variable laces round-trip independent
 encoded frame vectors for counts 2 through 256. Exhaustive 65,536 flag/count pairs
 and 12,800 deterministic random inputs exercise additional bounded cases. These
 are structural tests; they do not qualify codec payloads or audio completeness.
-The block example in rustdoc is executable. Container-level demux and independent
-packet-hash comparison on real MediaRecorder/YouTube corpora remain unimplemented.
+The block example in rustdoc is executable. Container-level demux is exercised
+below; independent comparison on real MediaRecorder/YouTube corpora remains
+unverified.
+
+Sixteen sequential demux tests cover original packet bytes/order/track identity,
+all lacing modes, signed timestamps and overflow, default-valued empty elements,
+late BlockGroup trim/reference/duration fields, every finite-fixture truncation,
+every-byte WouldBlock/Interrupted/source errors, declared widths, duplicates,
+unsupported transformations/CRC/state, resource/work limits and 10,000 successive
+unknown-size Clusters. These are original synthetic fixtures with no decoder or
+external tools in ordinary tests. The audio_packets example reads a source
+sequentially and requires final EOF before emitting a successful End event.
+
+Initial local external checks with FFmpeg 7.0.2-static (libavformat 61.1.100)
+match ordered packet SHA-256 and CodecPrivate on three generated files: Opus
+(52 packets), Vorbis live output (21), and mixed VP9/Opus (21). Live output reports
+unknown-size completion uncertainty. The same ordered packet SHA-256 values also
+match Mozilla Nestegg commit `767aab25013acefbdcc6d68a2a7a2c9081303e3f` on all
+three files. This is limited synthetic-corpus evidence from two implementations,
+not the required MediaRecorder/YouTube corpus qualification. FFprobe's
+millisecond time base rounds the first Opus timestamp differently from exact
+nanosecond CodecDelay subtraction; no exact timing equivalence is claimed.
+Raw media, manifests and command evidence remain local under ignored runs/.
+
+All current repository gates pass locally on Linux with Rust 1.89.0: 48
+integration tests and two doctests in debug/release, strict all-target Clippy,
+formatting, warning-free rustdoc and zero third-party dependencies. This evidence
+does not close the outstanding corpus, timing, trim, fuzz or performance gates.
