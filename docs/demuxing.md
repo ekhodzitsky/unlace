@@ -98,7 +98,8 @@ semantic validity are not. Unknown IDs fail explicitly. The static schema in
 `src/demux/schema.rs` is the exact recognized set. Not every Matroska extension,
 scalar constraint, version-dependent rule or codec-specific WebM constraint is
 validated. End therefore reports this subset's structural result, not universal
-Matroska/WebM conformance or source authenticity. Index seeking is separate work.
+Matroska/WebM conformance or source authenticity. The separate
+[seek reader](seeking.md) adds bounded index/destination checks.
 
 ## Completion and resource limits
 

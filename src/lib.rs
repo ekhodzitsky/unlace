@@ -3,8 +3,8 @@
 //! Provides allocation-free EBML integer parsing, schema-driven incremental
 //! framing in [`stream`] and individual Block/SimpleBlock parsing in [`block`].
 //! Sequential selected-audio packet events are available in [`demux`]. The
-//! supported subset remains under qualification; seeking and writing are not
-//! implemented.
+//! supported subset remains under qualification. [`seek`] adds bounded verified
+//! container access over immutable positional sources. Writing is not implemented.
 //!
 //! ```
 //! use unlace::{parse_id, parse_size, ElementSize, Parsed};
@@ -29,6 +29,8 @@ pub mod demux;
 pub mod opus;
 
 pub mod source;
+
+pub mod seek;
 
 /// A complete value or an incomplete prefix. Input is never mutated or retained.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

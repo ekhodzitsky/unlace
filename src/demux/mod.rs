@@ -305,7 +305,7 @@ struct Packets {
     invisible: bool,
 }
 
-enum Action {
+pub(crate) enum Action {
     Tracks,
     Packet,
     NeedInput,
@@ -333,6 +333,8 @@ pub struct Demuxer<R> {
     header: HeaderState,
     header_done: bool,
     segment_seen: bool,
+    segment_header: Option<Header>,
+    restart_context: Option<Context>,
     segment_done: bool,
     completion: Completion,
     info: SegmentInfo,
@@ -377,6 +379,8 @@ impl<R: Read> Demuxer<R> {
             header: HeaderState::default(),
             header_done: false,
             segment_seen: false,
+            segment_header: None,
+            restart_context: None,
             segment_done: false,
             completion: Completion::UnknownSizeSegment,
             info: SegmentInfo {
@@ -419,19 +423,81 @@ impl<R: Read> Demuxer<R> {
         self.reader.into_inner()
     }
 
-    /// Advance bounded work and borrow the next packet, if available. Always
-    /// continue through End to detect late truncation, corruption or source errors.
-    pub fn poll(&mut self) -> Result<DemuxEvent<'_>, DemuxError> {
+    pub(crate) fn source_mut(&mut self) -> &mut R {
+        self.reader.source_mut()
+    }
+    pub(crate) fn source(&self) -> &R {
+        self.reader.source()
+    }
+
+    pub(crate) fn seek_metadata(&self) -> Option<(Header, u8, &Track)> {
+        if !self.info_done || !self.tracks_done {
+            return None;
+        }
+        Some((
+            self.segment_header?,
+            self.header.size_width as u8,
+            self.tracks.get(self.selected?)?,
+        ))
+    }
+
+    pub(crate) fn prepare_metadata(&mut self) -> Result<bool, DemuxError> {
         if self.failed {
             return Err(DemuxError::Failed);
         }
-        let action = match self.advance() {
+        if let Err(error) = self.advance(true) {
+            self.failed = true;
+            return Err(error);
+        }
+        let ready = self.info_done && self.tracks_done;
+        if ready && self.restart_context.is_none() {
+            self.restart_context = self.contexts.first().copied();
+        }
+        Ok(ready)
+    }
+
+    pub(crate) fn restart_cluster(&mut self, offset: u64) -> Result<(), DemuxError> {
+        if self.failed {
+            return Err(DemuxError::Failed);
+        }
+        let parent = self.segment_header.ok_or(DemuxError::Configuration)?;
+        let context = self.restart_context.ok_or(DemuxError::Configuration)?;
+        self.reader.restart_child(parent, offset)?;
+        self.contexts.fill(Context::default());
+        self.contexts[0] = context;
+        self.depth = 1;
+        self.segment_done = false;
+        self.cluster_timestamp = None;
+        self.group = None;
+        self.leaf = None;
+        self.metadata.clear();
+        self.block_data.clear();
+        self.packets = None;
+        Ok(())
+    }
+
+    /// Advance bounded work and borrow the next packet, if available. Always
+    /// continue through End to detect late truncation, corruption or source errors.
+    pub fn poll(&mut self) -> Result<DemuxEvent<'_>, DemuxError> {
+        let action = self.poll_action()?;
+        self.event(action)
+    }
+
+    pub(crate) fn poll_action(&mut self) -> Result<Action, DemuxError> {
+        if self.failed {
+            return Err(DemuxError::Failed);
+        }
+        let action = match self.advance(false) {
             Ok(action) => action,
             Err(error) => {
                 self.failed = true;
                 return Err(error);
             }
         };
+        Ok(action)
+    }
+
+    pub(crate) fn event(&mut self, action: Action) -> Result<DemuxEvent<'_>, DemuxError> {
         Ok(match action {
             Action::Tracks => DemuxEvent::TracksReady,
             Action::NeedInput => DemuxEvent::NeedInput,
@@ -481,7 +547,10 @@ impl<R: Read> Demuxer<R> {
         })
     }
 
-    fn advance(&mut self) -> Result<Action, DemuxError> {
+    fn advance(&mut self, stop_at_metadata: bool) -> Result<Action, DemuxError> {
+        if stop_at_metadata && self.info_done && self.tracks_done {
+            return Ok(Action::Yield);
+        }
         if self
             .packets
             .as_ref()
@@ -519,6 +588,9 @@ impl<R: Read> Demuxer<R> {
                     }
                     return Ok(Action::End(self.completion));
                 }
+            }
+            if stop_at_metadata && self.info_done && self.tracks_done {
+                return Ok(Action::Yield);
             }
             if self
                 .packets
@@ -598,6 +670,7 @@ impl<R: Read> Demuxer<R> {
         match id {
             SEGMENT => {
                 self.segment_seen = true;
+                self.segment_header = Some(header);
                 self.completion = if matches!(header.size, ElementSize::Known(_)) {
                     Completion::FiniteSegment
                 } else {

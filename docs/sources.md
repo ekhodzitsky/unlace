@@ -2,8 +2,9 @@
 
 `source::RangeReader<S>` bounds positional input over `source::ReadAt`. It owns
 one snapshot and has no container interpretation. The sequential demuxer still
-uses ordinary `Read` and does not require a known length or seeking. Container
-seeking, index parsing and verified interval completion remain unfinished.
+uses ordinary `Read` and does not require a known length or seeking. The separate
+[seek reader](seeking.md) adds container index/destination checks.
+Read extents alone never establish verified interval completion.
 
 A range provider supplies a complete `u64` length and a `u128` revision through
 `ReadAt::snapshot`. Bytes must remain immutable within that revision, including
@@ -75,8 +76,9 @@ filesystem traffic, network traffic or validated packet coverage.
 All operations are synchronous. There are no background workers to cancel or
 join. This layer never interrupts a blocking provider method. Applications that
 need bounded cancellation latency must bound every provider method, including
-snapshot checks, and check cancellation between calls. The future container seek
-operation must add its own cancellation and validation state contract.
+snapshot checks, and check cancellation between calls. The container
+[seek contract](seeking.md) adds cooperative cancellation and
+validation state on top of this source layer.
 
 The module's executable Rust example demonstrates backward reads and read
 accounting. Original deterministic tests cover range continuation at every byte

@@ -318,6 +318,43 @@ impl<'a, R: Read> Reader<'a, R> {
         self.offset
     }
 
+    pub(crate) fn source_mut(&mut self) -> &mut R {
+        &mut self.source
+    }
+    pub(crate) fn source(&self) -> &R {
+        &self.source
+    }
+
+    // Only the container seek layer may call this, after attesting a real child
+    // boundary in this same immutable source and validating Segment metadata.
+    pub(crate) fn restart_child(&mut self, parent: Header, offset: u64) -> Result<(), StreamError> {
+        let end = match parent.size {
+            ElementSize::Known(size) => Some(
+                parent
+                    .data_offset
+                    .checked_add(size)
+                    .ok_or(StreamError::Invalid("restart parent overflow"))?,
+            ),
+            ElementSize::Unknown => None,
+        };
+        if offset < parent.data_offset || end.is_some_and(|end| offset >= end) {
+            return Err(StreamError::Invalid("restart outside parent"));
+        }
+        self.stack.fill(None);
+        self.stack[0] = Some(Frame {
+            header: parent,
+            end,
+        });
+        self.depth = 1;
+        self.leaf = None;
+        self.header_len = 0;
+        self.pending = None;
+        self.offset = offset;
+        self.eof = false;
+        self.failed = false;
+        Ok(())
+    }
+
     // The document layer applies declared maxima after the finite EBML header
     // ends, before any body header bytes have been read.
     pub(crate) fn set_width_limits(&mut self, id: u8, size: u8) -> Result<(), StreamError> {

@@ -58,7 +58,8 @@ it does not decode audio or benchmark throughput.
 The separate [positional source contract](docs/sources.md) provides bounded
 reads for immutable files and externally cached ranges. It reports unavailable
 byte extents, actual read work and observed source replacement. This input layer
-does not yet implement container seeking or validate Cues/SeekHead offsets.
+supports the separate [seek reader](docs/seeking.md), which validates index
+destinations and reports actual starts, preroll, fallback and suffix completion.
 
 ## Existing alternatives
 
@@ -85,7 +86,8 @@ There are no representative container benchmarks or coverage measurements yet.
 The [qualification protocol](docs/qualification.md) defines equivalent-work
 checks required before performance comparisons. No numerical advantage is claimed.
 
-Unlace does not yet seek or write containers. The sequential reader explicitly
+Unlace does not yet write containers. Container seeking is available under the
+explicit [seek contract and qualification](docs/seeking.md). The sequential reader explicitly
 rejects unsupported transformations, CRC-32 and several general Matroska features.
 The pinned [MediaRecorder/YouTube corpus](docs/packet-qualification.md) matches
 selected packet bytes with two independent demuxers. The

@@ -48,14 +48,16 @@ DiscardPadding. General Matroska extensions must be supported explicitly or
 rejected/skipped according to a documented rule. Writing containers is a separate
 capability and must distinguish live output from durably finalized indexed files.
 Sequential audio events now integrate the core and block parser under the
-explicit [demuxing subset](demuxing.md). End-to-end corpus qualification, seeking
+explicit [demuxing subset](demuxing.md). Broader end-to-end qualification
 and writing remain unfinished; the target contracts are broader than current
 verified capability.
 
 The [positional source layer](sources.md) is separate from sequential `Read`:
 providers supply a known complete length and immutable revision, reads have
 explicit per-operation work budgets, and read extents do not imply validation.
-It is infrastructure for the pending seek API; Cues/SeekHead remain unvalidated.
+The separate [seek reader](seeking.md) validates structural destinations, reports
+actual starts/preroll/fallback and scopes completion to the suffix it reads.
+Skipped media and decoder state remain unverified.
 
 ## Evidence for decisions
 

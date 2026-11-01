@@ -4,6 +4,16 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Add separate selected-audio seeking over immutable positional sources: attest
+  real Segment/Cluster boundaries, parse bounded Cues/SeekHead and verify used
+  cue destinations against actual selected-track blocks before restarting.
+  Report actual time/position, declared/effective preroll, explicit scan fallback
+  and suffix-only completion; skipped media and decoder state stay unverified.
+- Preserve packet state across cancelled/unavailable seek requests. Add a file
+  seek example, hostile/ranged-input regressions and 32 exact suffix comparisons
+  across eight pinned sources, including native MediaRecorder and YouTube.
+  No matched competitor seek or performance claim is made.
+
 - Add bounded positional input over provider-versioned immutable snapshots and
   a separate Read + Seek adapter. Report capped missing-range requests, actual
   read work and explicit extent-log truncation; latch observed source changes

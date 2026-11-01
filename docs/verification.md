@@ -120,3 +120,23 @@ changes; it cannot detect same-length external writes. These tests exercise
 input infrastructure only, not Cues/SeekHead validation or container seeking.
 All required local Rust 1.89.0 gates passed with 87 integration tests and four
 doctests in debug/release, strict Clippy, formatting, rustdoc and zero dependencies.
+
+Eighteen container-seek regressions cover attested index destinations, exact
+forward/backward packet suffixes, missing/unselected cues, BlockGroup/no-relative
+hints, all track VINT widths, every finite-fixture truncation, every-byte missing
+ranges, short/interrupted reads, preparation/packet cancellation, immutable-source
+checks, CRC classification and index/scan/work refusals. They preserve regressions
+for four defects reproduced before correction. A separate local streaming
+adapter matched every suffix byte, all packet fields and requested one-second
+intervals for 32 queries across
+eight pinned sources, including native MediaRecorder and completed YouTube audio.
+Opening, seek and packet I/O are counted separately without claiming speed,
+network savings, whole-source validation or decoder readiness. See
+[seeking.md](seeking.md) for source identities, method, scope and aggregate results.
+
+Final seek gates passed locally with Rust 1.89.0: 105 integration tests and four
+executable doctests in debug/release, all-target strict Clippy, formatting,
+warning-free rustdoc and zero third-party dependencies. The final file seek
+example was built and exercised on the completed YouTube source. All 32 local
+suffix/window comparisons passed again against the final library, with unchanged
+provider-read counters.
