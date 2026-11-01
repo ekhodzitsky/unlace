@@ -9,6 +9,9 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 - Enforce finite parent boundaries and schema-driven unknown-size termination;
   refuse unsupported IDs and invalid forms without scanning payloads.
 - Bound depth, declared metadata/payload/skip sizes and per-poll read work.
+- Add allocation-free Block/SimpleBlock frame views for no, fixed, Xiph and
+  EBML lacing, preserving track number, signed relative timestamp and flags.
+  Enforce block/frame/count/lace-work limits with malformed-input regressions.
 - Add sequential framing example and deterministic streaming regressions.
   This core does not yet validate WebM documents or extract audio packets.
 

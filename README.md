@@ -2,8 +2,9 @@
 
 Unlace is a private Rust project for streaming WebM and Matroska demuxing.
 The **0.1.0 source milestone** provides allocation-free EBML integer parsing.
-Unreleased work adds schema-driven incremental framing over `Read`; audio packet
-extraction is not available yet.
+Unreleased work adds schema-driven incremental framing over `Read` and individual
+Block/SimpleBlock parsing. Container-level audio packet iteration is not available
+yet.
 
 [Design](docs/design.md) · [Competitors](docs/comparison.md) · [Verification](docs/verification.md)
 
@@ -41,7 +42,8 @@ never authorizes an allocation by itself.
 For sequential framing, run `cargo run --offline --locked --example stream_ebml`.
 The [streaming contract](docs/streaming.md) explains caller-provided schemas,
 zero-allocation payload chunks, `WouldBlock` continuation, final source EOF and
-resource limits. This core does not yet validate a WebM document.
+resource limits. The [block contract](docs/blocks.md) covers standalone frame
+splitting for all lacing modes. These cores do not yet validate a WebM document.
 
 ## Existing alternatives
 
@@ -68,8 +70,8 @@ There are no representative container benchmarks or coverage measurements yet.
 The [qualification protocol](docs/qualification.md) defines equivalent-work
 checks required before performance comparisons. No numerical advantage is claimed.
 
-Unlace does not yet read track metadata, split blocks/lacing, extract packets,
-seek or write containers. It does not decode Opus, fetch URLs or recognize speech.
+Unlace does not yet read track metadata, iterate packets from containers, seek
+or write containers. It does not decode Opus, fetch URLs or recognize speech.
 The repository is private, package publication is disabled, hosted Actions are
 disabled and no release artifact is published. A distribution license has not
 been selected. Downloads, docs.rs and CI badges therefore do not apply; coverage

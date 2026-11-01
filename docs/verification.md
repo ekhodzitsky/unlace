@@ -37,3 +37,13 @@ A deterministic 12,800-input random smoke test exercises parser entry states; it
 is not sustained coverage-guided fuzzing or evidence of whole-container safety.
 No competitor, media corpus, decoded trimming or performance qualification has
 been completed. See [streaming.md](streaming.md) for the exact core contract.
+
+Ten additional block tests cover all four lacing modes, independent RFC wire
+examples, original borrowed bytes and order, all track VINT widths, signed
+timestamp endpoints, reserved flags, all 256 frame slots, empty frames, malformed
+lengths/deltas, lace-work and size limits. Variable laces round-trip independently
+encoded frame vectors for counts 2 through 256. Exhaustive 65,536 flag/count pairs
+and 12,800 deterministic random inputs exercise additional bounded cases. These
+are structural tests; they do not qualify codec payloads or audio completeness.
+The block example in rustdoc is executable. Container-level demux and independent
+packet-hash comparison on real MediaRecorder/YouTube corpora remain unimplemented.
