@@ -36,6 +36,7 @@ fn track() -> TrackConfig<'static> {
 #[derive(Debug, PartialEq)]
 struct Packet {
     data: Vec<u8>,
+    raw: i128,
     track: u64,
     ts: Option<i128>,
     padding: i64,
@@ -57,6 +58,7 @@ fn read(bytes: &[u8], number: u64) -> (Vec<Packet>, Completion) {
         match d.poll().unwrap() {
             DemuxEvent::Packet(p) => packets.push(Packet {
                 data: p.data.to_vec(),
+                raw: p.block_timestamp_ns,
                 track: p.track_number,
                 ts: p.timestamp_ns,
                 padding: p.block_discard_padding_ns,
@@ -370,6 +372,9 @@ struct Fault {
     flushes: usize,
     fail_flush: usize,
     bad_seek: Rc<Cell<bool>>,
+    seeks: usize,
+    fail_seek: usize,
+    seek_interrupts: Rc<Cell<usize>>,
 }
 impl Fault {
     fn new(fail_at: usize) -> Self {
@@ -383,6 +388,9 @@ impl Fault {
             flushes: 0,
             fail_flush: 0,
             bad_seek: Rc::new(Cell::new(false)),
+            seeks: 0,
+            fail_seek: 0,
+            seek_interrupts: Rc::new(Cell::new(0)),
         }
     }
 }
@@ -414,6 +422,14 @@ impl Write for Fault {
 impl Seek for Fault {
     fn seek(&mut self, where_: SeekFrom) -> io::Result<u64> {
         self.calls += 1;
+        self.seeks += 1;
+        if self.seeks == self.fail_seek {
+            return Err(io::ErrorKind::StorageFull.into());
+        }
+        if self.seek_interrupts.get() > 0 {
+            self.seek_interrupts.set(self.seek_interrupts.get() - 1);
+            return Err(io::ErrorKind::Interrupted.into());
+        }
         let n = self.cursor.seek(where_)?;
         Ok(n + u64::from(self.bad_seek.get()))
     }
@@ -589,10 +605,26 @@ fn wide_ebml_lace_differences_empty_frames_and_all_256_slots_round_trip() {
 }
 #[test]
 fn block_io_failure_poison_is_distinct_from_preflight_refusal() {
-    let baseline = LiveWriter::new(Vec::new(), &[track()], WriteConfig::default()).unwrap();
+    let baseline = LiveWriter::new(
+        Vec::new(),
+        &[track()],
+        WriteConfig {
+            max_cluster_duration_ns: 0,
+            ..Default::default()
+        },
+    )
+    .unwrap();
     let at = baseline.position();
     let mut sink = Fault::new(at as usize + 3);
-    let mut w = LiveWriter::new(&mut sink, &[track()], WriteConfig::default()).unwrap();
+    let mut w = LiveWriter::new(
+        &mut sink,
+        &[track()],
+        WriteConfig {
+            max_cluster_duration_ns: 0,
+            ..Default::default()
+        },
+    )
+    .unwrap();
     assert!(matches!(
         w.write_block(EncodedBlock::new(1, -6_500_000, b"partial")),
         Err(WriteError::Io {
@@ -652,6 +684,7 @@ fn exact_index_size_boundary_and_write_work_refusal_are_observable() {
         }
     }
     let config = WriteConfig {
+        max_cluster_duration_ns: 0,
         limits: WriteLimits {
             max_io_calls: 1,
             ..Default::default()
@@ -757,4 +790,431 @@ fn valid_inputs_over_policy_limits_are_distinct_from_invalid_representation() {
         lacing: Lacing::Fixed,
     };
     assert!(matches!(w.write_block(b), Err(WriteError::Limit(_))));
+}
+
+// Walk finite Segment children by declared lengths, never scan packet bytes.
+fn cluster_count(bytes: &[u8]) -> usize {
+    use unlace::{ElementSize, Parsed, parse_id, parse_size};
+    fn header(bytes: &[u8], at: &mut usize) -> (u32, ElementSize) {
+        let Parsed::Complete {
+            value: id,
+            consumed,
+        } = parse_id(&bytes[*at..]).unwrap()
+        else {
+            panic!("ID")
+        };
+        *at += consumed;
+        let Parsed::Complete {
+            value: size,
+            consumed,
+        } = parse_size(&bytes[*at..]).unwrap()
+        else {
+            panic!("size")
+        };
+        *at += consumed;
+        (id.value(), size)
+    }
+    let mut at = 0;
+    let (id, size) = header(bytes, &mut at);
+    assert_eq!(id, 0x1a45dfa3);
+    let ElementSize::Known(n) = size else {
+        panic!("header length")
+    };
+    at += n as usize;
+    let (id, size) = header(bytes, &mut at);
+    assert_eq!(id, 0x18538067);
+    let end = match size {
+        ElementSize::Known(n) => at + n as usize,
+        ElementSize::Unknown => bytes.len(),
+    };
+    let mut count = 0;
+    while at < end {
+        let (id, size) = header(bytes, &mut at);
+        if id == 0x1f43b675 {
+            count += 1;
+        }
+        let ElementSize::Known(n) = size else {
+            panic!("finite child")
+        };
+        at += n as usize;
+    }
+    assert_eq!(at, end);
+    count
+}
+#[test]
+fn default_cluster_packing_preserves_every_block_and_avoids_per_packet_directory_growth() {
+    let mut w = LiveWriter::new(Vec::new(), &[track()], WriteConfig::default()).unwrap();
+    for i in 0..60 {
+        w.write_block(EncodedBlock::new(1, i * 20_000_000 - 6_500_000, &[i as u8]))
+            .unwrap();
+    }
+    w.finish().unwrap();
+    let bytes = w.into_inner();
+    let (p, _) = read(&bytes, 1);
+    assert_eq!(p.len(), 60);
+    for (i, p) in p.iter().enumerate() {
+        assert_eq!(p.data, [i as u8]);
+        assert_eq!(p.ts, Some(i as i128 * 20_000_000 - 6_500_000));
+    }
+    assert_eq!(cluster_count(&bytes), 2);
+}
+
+#[test]
+fn packing_owns_one_bounded_copy_and_explicit_flush_does_not_finish() {
+    let mut w = LiveWriter::new(Vec::new(), &[track()], WriteConfig::default()).unwrap();
+    let header = w.position();
+    let mut bytes = b"caller data".to_vec();
+    w.write_block(EncodedBlock::new(1, -6_500_000, &bytes))
+        .unwrap();
+    bytes.fill(0);
+    let retained = w.buffered_bytes();
+    assert!(retained > 0);
+    assert_eq!(w.position(), header);
+    let bad = EncodedBlock::new(1, -6_499_999, b"inexact");
+    assert!(w.write_block(bad).is_err());
+    assert_eq!(w.buffered_bytes(), retained);
+    assert_eq!(w.position(), header);
+    w.flush().unwrap();
+    assert_eq!(w.state(), WriteState::Writing);
+    assert_eq!(w.buffered_bytes(), 0);
+    assert!(w.position() > header);
+    w.write_block(EncodedBlock::new(1, 13_500_000, b"next"))
+        .unwrap();
+    let r = w.finish().unwrap();
+    assert_eq!((r.blocks, r.clusters), (2, 2));
+    let (p, _) = read(&w.into_inner(), 1);
+    assert_eq!(p[0].data, b"caller data");
+    assert_eq!(p[1].data, b"next");
+}
+#[test]
+fn packing_obeys_exact_byte_time_and_signed_relative_tick_boundaries() {
+    let config = WriteConfig {
+        limits: WriteLimits {
+            max_cluster_buffer: 17,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut w = LiveWriter::new(Vec::new(), &[track()], config).unwrap();
+    for i in 0..3 {
+        w.write_block(EncodedBlock::new(1, i * 20_000_000 - 6_500_000, b"x"))
+            .unwrap();
+        assert!(w.buffered_bytes() <= 17);
+    }
+    assert_eq!(w.finish().unwrap().clusters, 2);
+    assert_eq!(cluster_count(&w.into_inner()), 2);
+    let config = WriteConfig {
+        max_cluster_duration_ns: 20_000_000,
+        ..Default::default()
+    };
+    let mut w = LiveWriter::new(Vec::new(), &[track()], config).unwrap();
+    for i in 0..3 {
+        w.write_block(EncodedBlock::new(1, i * 20_000_000 - 6_500_000, b"x"))
+            .unwrap();
+    }
+    assert_eq!(w.finish().unwrap().clusters, 3);
+    let config = WriteConfig {
+        timestamp_scale_ns: 1,
+        max_cluster_duration_ns: u64::MAX,
+        ..Default::default()
+    };
+    let mut w = LiveWriter::new(Vec::new(), &[track()], config).unwrap();
+    for raw in [0, 32767, 32768] {
+        w.write_block(EncodedBlock::new(1, raw - 6_500_000, b"x"))
+            .unwrap();
+    }
+    assert_eq!(w.finish().unwrap().clusters, 2);
+    let (p, _) = read(&w.into_inner(), 1);
+    assert_eq!(p[1].ts, Some(-6_467_233));
+    assert_eq!(p[2].ts, Some(-6_467_232));
+}
+#[test]
+fn oversized_blocks_use_direct_clusters_between_packed_clusters_with_valid_cues() {
+    let config = WriteConfig {
+        cue_interval_ns: 0,
+        limits: WriteLimits {
+            max_cluster_buffer: 17,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut w = IndexedWriter::new(Cursor::new(Vec::new()), &[track()], config).unwrap();
+    w.write_block(EncodedBlock::new(1, -6_500_000, b"a"))
+        .unwrap();
+    assert!(w.buffered_bytes() > 0);
+    let large = [42; 100];
+    w.write_block(EncodedBlock::new(1, 13_500_000, &large))
+        .unwrap();
+    assert_eq!(w.buffered_bytes(), 0);
+    w.write_block(EncodedBlock::new(1, 33_500_000, b"c"))
+        .unwrap();
+    let r = w.finish().unwrap();
+    assert_eq!((r.blocks, r.clusters, r.cues), (3, 3, 3));
+    let bytes = w.into_inner().into_inner();
+    assert_eq!(read(&bytes, 1).0[1].data, large);
+    let mut s = SeekReader::new(
+        SeekSource::new(Cursor::new(bytes), 1),
+        AudioSelection::First,
+        DemuxLimits::default(),
+        SeekLimits::default(),
+    )
+    .unwrap();
+    let cancel = AtomicBool::new(false);
+    while s.prepare(&cancel).unwrap() != Preparation::Ready {}
+    for (target, data) in [
+        (0, b"a".as_slice()),
+        (100_000_000, large.as_slice()),
+        (120_000_000, b"c".as_slice()),
+    ] {
+        s.seek(
+            SeekRequest {
+                timestamp_ns: target,
+                preroll_ns: 0,
+            },
+            &cancel,
+        )
+        .unwrap();
+        loop {
+            match s.poll(&cancel).unwrap() {
+                SeekEvent::Packet(p) => {
+                    assert_eq!(p.data, data);
+                    break;
+                }
+                SeekEvent::Yield => (),
+                _ => panic!("expected packet"),
+            }
+        }
+    }
+}
+#[test]
+fn pending_media_is_not_emitted_by_drop_and_flush_errors_poison_it() {
+    let mut sink = Vec::new();
+    {
+        let mut w = LiveWriter::new(&mut sink, &[track()], WriteConfig::default()).unwrap();
+        w.write_block(EncodedBlock::new(1, -6_500_000, b"pending"))
+            .unwrap();
+        assert!(w.buffered_bytes() > 0);
+    }
+    assert_eq!(cluster_count(&sink), 0);
+    assert!(read(&sink, 1).0.is_empty());
+    let header = LiveWriter::new(Vec::new(), &[track()], WriteConfig::default())
+        .unwrap()
+        .position();
+    let mut faulty = Fault::new(header as usize + 2);
+    let mut w = LiveWriter::new(&mut faulty, &[track()], WriteConfig::default()).unwrap();
+    w.write_block(EncodedBlock::new(1, -6_500_000, b"pending"))
+        .unwrap();
+    assert!(matches!(
+        w.flush(),
+        Err(WriteError::Io {
+            stage: WriteStage::Block,
+            ..
+        })
+    ));
+    assert_eq!(w.state(), WriteState::Failed);
+    assert!(matches!(
+        w.finish(),
+        Err(WriteError::State(WriteState::Failed))
+    ));
+}
+
+#[test]
+fn every_finalization_seek_failure_and_interrupted_seek_preserves_error_state() {
+    for point in 1..=6 {
+        let mut sink = Fault::new(usize::MAX);
+        sink.fail_seek = point;
+        match IndexedWriter::new(&mut sink, &[track()], WriteConfig::default()) {
+            Err(e) => {
+                assert!(point <= 3);
+                assert!(matches!(
+                    e,
+                    WriteError::Io {
+                        stage: WriteStage::Header,
+                        ..
+                    }
+                ));
+            }
+            Ok(mut w) => {
+                assert!(point >= 4);
+                w.write_block(EncodedBlock::new(1, -6_500_000, b"one"))
+                    .unwrap();
+                let e = w.finish().unwrap_err();
+                assert!(
+                    matches!(
+                        e,
+                        WriteError::Io {
+                            stage: WriteStage::SeekHead,
+                            ..
+                        }
+                    ) && point == 4
+                        || matches!(
+                            e,
+                            WriteError::Io {
+                                stage: WriteStage::Commit,
+                                ..
+                            }
+                        ) && point >= 5
+                );
+                assert_eq!(w.state(), WriteState::Failed);
+                assert!(matches!(
+                    w.finish(),
+                    Err(WriteError::State(WriteState::Failed))
+                ));
+            }
+        };
+    }
+    let mut sink = Fault::new(usize::MAX);
+    let interrupts = sink.seek_interrupts.clone();
+    let mut w = IndexedWriter::new(&mut sink, &[track()], WriteConfig::default()).unwrap();
+    w.write_block(EncodedBlock::new(1, -6_500_000, b"one"))
+        .unwrap();
+    interrupts.set(5);
+    w.finish().unwrap();
+    assert_eq!(interrupts.get(), 0);
+}
+#[test]
+fn deterministic_generated_packing_and_lacing_sequences_preserve_declared_records() {
+    for seed in 0..96u64 {
+        let config = WriteConfig {
+            timestamp_scale_ns: if seed & 1 == 0 { 1 } else { 1_000_000 },
+            max_cluster_duration_ns: [0, 20_000_000, 1_000_000_000][seed as usize % 3],
+            limits: WriteLimits {
+                max_cluster_buffer: [0, 17, 128, 1024][seed as usize % 4],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut live = LiveWriter::new(Vec::new(), &[track()], config).unwrap();
+        let mut indexed = IndexedWriter::new(Cursor::new(Vec::new()), &[track()], config).unwrap();
+        let mut expected = Vec::new();
+        let mut rng = seed + 1;
+        for block in 0..32 {
+            rng = rng
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            let n = 1 + (rng as usize % 8);
+            let mode = if n == 1 {
+                Lacing::None
+            } else {
+                [Lacing::Fixed, Lacing::Xiph, Lacing::Ebml][(rng >> 8) as usize % 3]
+            };
+            let data: Vec<Vec<u8>> = (0..n)
+                .map(|i| {
+                    vec![
+                        (rng >> 32) as u8;
+                        if mode == Lacing::Fixed {
+                            (rng >> 16) as usize % 256
+                        } else {
+                            ((rng >> 16) as usize + i * 83) % 256
+                        }
+                    ]
+                })
+                .collect();
+            let slices: Vec<&[u8]> = data.iter().map(Vec::as_slice).collect();
+            let raw = block * 200_000_000;
+            let mut b = EncodedBlock::new(1, raw - 6_500_000, b"");
+            b.frames = if n == 1 {
+                Frames::Single(slices[0])
+            } else {
+                Frames::Laced {
+                    frames: &slices,
+                    lacing: mode,
+                }
+            };
+            b.duration_ns = (rng & 16 != 0).then_some(n as u64 * 20_000_000);
+            b.discard_padding_ns = ((rng >> 24) as i64 % 3 - 1) * 1_000_000;
+            b.keyframe = block == 0 || rng & 4 != 0;
+            b.invisible = rng & 8 != 0;
+            b.discardable = b.duration_ns.is_none() && b.discard_padding_ns == 0 && rng & 32 != 0;
+            if block % 4 == 0 {
+                let before = (
+                    live.position(),
+                    live.buffered_bytes(),
+                    indexed.position(),
+                    indexed.buffered_bytes(),
+                );
+                assert!(live.write_block(EncodedBlock::new(0, 0, b"bad")).is_err());
+                assert!(
+                    indexed
+                        .write_block(EncodedBlock::new(0, 0, b"bad"))
+                        .is_err()
+                );
+                assert_eq!(
+                    before,
+                    (
+                        live.position(),
+                        live.buffered_bytes(),
+                        indexed.position(),
+                        indexed.buffered_bytes()
+                    )
+                );
+            }
+            live.write_block(b).unwrap();
+            indexed.write_block(b).unwrap();
+            assert!(live.buffered_bytes() <= config.limits.max_cluster_buffer);
+            assert!(indexed.buffered_bytes() <= config.limits.max_cluster_buffer);
+            for (i, data) in data.iter().enumerate() {
+                expected.push(Packet {
+                    data: data.clone(),
+                    raw,
+                    track: 1,
+                    ts: Some(raw - 6_500_000 + i as i128 * 20_000_000),
+                    padding: b.discard_padding_ns,
+                    duration: b.duration_ns.map(i128::from),
+                    lace: (i as u16, n as u16),
+                    key: b.keyframe,
+                    invisible: b.invisible,
+                    discardable: b.discardable,
+                });
+            }
+            if rng & 64 != 0 {
+                live.flush().unwrap();
+                indexed.flush().unwrap();
+            }
+        }
+        let a = live.finish().unwrap();
+        let z = indexed.finish().unwrap();
+        assert_eq!(a.packets, expected.len() as u64);
+        assert_eq!(z.packets, a.packets);
+        assert!(a.clusters <= 32 && z.clusters <= 32);
+        assert_eq!(read(&live.into_inner(), 1).0, expected);
+        assert_eq!(read(&indexed.into_inner().into_inner(), 1).0, expected);
+    }
+}
+
+#[test]
+fn negative_first_block_and_later_nonnegative_cue_share_a_verified_cluster() {
+    let config = WriteConfig {
+        timestamp_scale_ns: 1,
+        ..Default::default()
+    };
+    let mut w = IndexedWriter::new(Cursor::new(Vec::new()), &[track()], config).unwrap();
+    w.write_block(EncodedBlock::new(1, -6_532_768, b"negative"))
+        .unwrap();
+    w.write_block(EncodedBlock::new(1, -6_500_000, b"cue"))
+        .unwrap();
+    let r = w.finish().unwrap();
+    assert_eq!((r.clusters, r.cues), (1, 1));
+    let bytes = w.into_inner().into_inner();
+    let (p, _) = read(&bytes, 1);
+    assert_eq!((p[0].raw, p[1].raw), (-32768, 0));
+    let mut s = SeekReader::new(
+        SeekSource::new(Cursor::new(bytes), 1),
+        AudioSelection::First,
+        DemuxLimits::default(),
+        SeekLimits::default(),
+    )
+    .unwrap();
+    let cancel = AtomicBool::new(false);
+    while s.prepare(&cancel).unwrap() != Preparation::Ready {}
+    let result = s
+        .seek(
+            SeekRequest {
+                timestamp_ns: 80_000_000,
+                preroll_ns: 0,
+            },
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(result.actual_timestamp_ns, -6_532_768);
 }

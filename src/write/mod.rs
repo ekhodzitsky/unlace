@@ -184,6 +184,9 @@ impl<'a> EncodedBlock<'a> {
 pub struct WriteLimits {
     /// Block, frame, frame-count and lace-header limits.
     pub block: BlockLimits,
+    /// Maximum retained Cluster payload bytes. Larger valid blocks use a direct
+    /// standalone Cluster. Zero disables packing and media buffering.
+    pub max_cluster_buffer: usize,
     /// Maximum configured track count.
     pub max_tracks: usize,
     /// Maximum serialized initial EBML/Info/Tracks bytes, including headers.
@@ -199,6 +202,7 @@ impl Default for WriteLimits {
     fn default() -> Self {
         Self {
             block: BlockLimits::default(),
+            max_cluster_buffer: 1024 * 1024,
             max_tracks: 64,
             max_metadata_size: 4 * 1024 * 1024,
             max_cues: 65_536,
@@ -217,6 +221,9 @@ pub struct WriteConfig<'a> {
     /// Minimum raw time separation between cues for each enabled track. Only
     /// caller-declared keyframes are indexed. Zero indexes every eligible block.
     pub cue_interval_ns: u64,
+    /// Maximum raw block-origin span of one packed Cluster. Zero disables
+    /// packing. Timestamp tick range and byte limits can close it sooner.
+    pub max_cluster_duration_ns: u64,
     /// Resource and work limits.
     pub limits: WriteLimits,
 }
@@ -226,6 +233,7 @@ impl Default for WriteConfig<'_> {
             timestamp_scale_ns: 1_000_000,
             writing_app: "unlace",
             cue_interval_ns: 1_000_000_000,
+            max_cluster_duration_ns: 1_000_000_000,
             limits: WriteLimits::default(),
         }
     }
@@ -326,8 +334,10 @@ pub struct WriteReceipt {
     pub completion: OutputCompletion,
     /// Complete encoded frame count, including laces and disabled tracks.
     pub packets: u64,
-    /// Complete block/Cluster count.
+    /// Complete encoded block count.
     pub blocks: u64,
+    /// Emitted finite Cluster count; several blocks can share one Cluster.
+    pub clusters: u64,
     /// Absolute end position, exclusive. Not a durability guarantee.
     pub end_offset: u64,
     /// Written cue entries, zero for live output.
@@ -473,6 +483,11 @@ struct Core<W> {
     envelope: Bytes,
     cues: Vec<Cue>,
     cue_bytes: u64,
+    pending: Bytes,
+    pending_base: Option<u64>,
+    pending_first_raw: i128,
+    max_cluster_duration_ns: u64,
+    clusters: u64,
     scale: u64,
     interval: u64,
     limits: WriteLimits,
@@ -484,6 +499,16 @@ struct Core<W> {
     last_raw: Option<i128>,
     packets: u64,
     blocks: u64,
+}
+
+fn check_segment_end(end: u64, body: u64, finite: bool) -> Result<(), WriteError> {
+    let size = end
+        .checked_sub(body)
+        .ok_or(WriteError::Invalid("output before Segment body"))?;
+    if finite && size > MAX_SIZE {
+        return Err(WriteError::Limit("Segment size"));
+    }
+    Ok(())
 }
 
 fn validate_track(t: &TrackConfig<'_>) -> Result<(), WriteError> {
@@ -730,6 +755,11 @@ impl<W: Write> Core<W> {
             envelope: Bytes::new(128),
             cues: Vec::new(),
             cue_bytes: 0,
+            pending: Bytes::new(limits.max_cluster_buffer),
+            pending_base: None,
+            pending_first_raw: 0,
+            max_cluster_duration_ns: config.max_cluster_duration_ns,
+            clusters: 0,
             scale: config.timestamp_scale_ns,
             interval: config.cue_interval_ns,
             limits,
@@ -945,9 +975,9 @@ impl<W: Write> Core<W> {
         if group && !b.keyframe && b.references.is_empty() {
             self.suffix.signed(0xfb, 0)?;
         }
-        // Assemble only headers; encoded frame bytes go directly to the sink.
+        // All input validation and allocation precedes draining an older Cluster.
         self.envelope.uint(0xe7, cluster)?;
-        let cue_relative = self.envelope.data.len() as u64;
+        let timestamp_size = self.envelope.data.len() as u64;
         let (_, bw) = ebml::size(block_size, None)?;
         let block_element = 1 + bw as u64 + block_size;
         let group_size = block_element + self.suffix.data.len() as u64;
@@ -957,23 +987,81 @@ impl<W: Write> Core<W> {
         } else {
             0
         };
-        let cluster_size = cue_relative + group_header + group_size;
-        // Prefix Cluster header by shifting the small Timestamp header.
-        self.envelope.prepend_header(CLUSTER, cluster_size)?;
+        let block_wire = group_header + group_size;
+        let single_payload = timestamp_size + block_wire;
+        let buffered = self.max_cluster_duration_ns != 0
+            && self.limits.max_cluster_buffer != 0
+            && single_payload <= self.limits.max_cluster_buffer as u64;
+        let keep = buffered
+            && self.pending_base.is_some_and(|base| {
+                i16::try_from(ticks - i128::from(base)).is_ok()
+                    && raw
+                        .checked_sub(self.pending_first_raw)
+                        .is_some_and(|span| span < i128::from(self.max_cluster_duration_ns))
+                    && block_wire
+                        <= self
+                            .limits
+                            .max_cluster_buffer
+                            .saturating_sub(self.pending.data.len())
+                            as u64
+            });
+        let base = if keep {
+            self.pending_base
+                .ok_or(WriteError::Invalid("pending Cluster base"))?
+        } else {
+            cluster
+        };
+        let relative = i16::try_from(ticks - i128::from(base))
+            .map_err(|_| WriteError::Invalid("relative timestamp range"))?;
+        self.prefix
+            .data
+            .get_mut(w..w + 2)
+            .ok_or(WriteError::Invalid("timestamp header bounds"))?
+            .copy_from_slice(&relative.to_be_bytes());
+        let cue_relative = if keep {
+            self.pending.data.len() as u64
+        } else {
+            timestamp_size
+        };
+        self.envelope.clear();
+        if !keep {
+            self.envelope.uint(0xe7, base)?;
+        }
         if group {
             self.envelope.header(0xa0, group_size)?;
         }
         self.envelope
             .header(if group { 0xa1 } else { 0xa3 }, block_size)?;
-        let end = self
+        let previous_wire = if !keep && !self.pending.data.is_empty() {
+            ebml::wire_size(self.pending.data.len() as u64)?
+        } else {
+            0
+        };
+        let cluster_start = self
             .out
             .position
-            .checked_add(self.envelope.data.len() as u64)
-            .and_then(|n| n.checked_add(block_size))
-            .and_then(|n| n.checked_add(self.suffix.data.len() as u64))
+            .checked_add(previous_wire)
             .ok_or(WriteError::Limit("output offset"))?;
-        if end - self.body > MAX_SIZE {
-            return Err(WriteError::Limit("Segment size"));
+        let payload = if keep {
+            (self.pending.data.len() as u64)
+                .checked_add(block_wire)
+                .ok_or(WriteError::Limit("Cluster payload"))?
+        } else {
+            single_payload
+        };
+        let end = cluster_start
+            .checked_add(ebml::wire_size(payload)?)
+            .ok_or(WriteError::Limit("output offset"))?;
+        check_segment_end(end, self.body, self.indexed)?;
+        if buffered {
+            let needed =
+                usize::try_from(payload).map_err(|_| WriteError::Limit("Cluster buffer"))?;
+            self.pending
+                .data
+                .try_reserve(needed.saturating_sub(self.pending.data.len()))
+                .map_err(|_| WriteError::Limit("Cluster allocation"))?;
+        } else {
+            self.envelope.prepend_header(CLUSTER, payload)?;
         }
         let cue_time = u64::try_from(ticks).ok();
         let add_cue = self.indexed
@@ -1002,15 +1090,48 @@ impl<W: Write> Core<W> {
                 .try_reserve(1)
                 .map_err(|_| WriteError::Limit("cue allocation"))?;
         }
-        let cluster_offset = self.out.position - self.body;
-        self.out.stage = WriteStage::Block;
-        self.out.write(&self.envelope.data)?;
-        self.out.write(&self.prefix.data)?;
-        for i in 0..count {
-            self.out
-                .write(b.frames.get(i).ok_or(WriteError::Invalid("frame bounds"))?)?;
+        // Include final Cues in the preflight finite-size check, not just media.
+        if self.indexed {
+            let (_, width) = ebml::size(next_cue_bytes, None)?;
+            let final_end = end
+                .checked_add(4 + width as u64)
+                .and_then(|n| n.checked_add(next_cue_bytes))
+                .ok_or(WriteError::Limit("final output offset"))?;
+            check_segment_end(final_end, self.body, true)?;
         }
-        self.out.write(&self.suffix.data)?;
+        let cluster_offset = cluster_start - self.body;
+        if !keep {
+            self.drain_cluster()?;
+        }
+        if buffered {
+            if !keep {
+                self.pending_base = Some(base);
+                self.pending_first_raw = raw;
+            }
+            // Capacity and every length were checked above; packet bytes are
+            // retained only in this one bounded Cluster until flush/rollover.
+            self.pending.raw(&self.envelope.data)?;
+            self.pending.raw(&self.prefix.data)?;
+            for i in 0..count {
+                self.pending
+                    .raw(b.frames.get(i).ok_or(WriteError::Invalid("frame bounds"))?)?;
+            }
+            self.pending.raw(&self.suffix.data)?;
+        } else {
+            let clusters = self
+                .clusters
+                .checked_add(1)
+                .ok_or(WriteError::Limit("Cluster counter"))?;
+            self.out.stage = WriteStage::Block;
+            self.out.write(&self.envelope.data)?;
+            self.out.write(&self.prefix.data)?;
+            for i in 0..count {
+                self.out
+                    .write(b.frames.get(i).ok_or(WriteError::Invalid("frame bounds"))?)?;
+            }
+            self.out.write(&self.suffix.data)?;
+            self.clusters = clusters;
+        }
         let track = self
             .tracks
             .get_mut(index)
@@ -1032,11 +1153,34 @@ impl<W: Write> Core<W> {
         self.blocks = blocks;
         Ok(())
     }
+    fn drain_cluster(&mut self) -> Result<(), WriteError> {
+        if self.pending.data.is_empty() {
+            return Ok(());
+        }
+        let clusters = self
+            .clusters
+            .checked_add(1)
+            .ok_or(WriteError::Limit("Cluster counter"))?;
+        let (header, width) = ebml::header(CLUSTER, self.pending.data.len() as u64)?;
+        self.out.stage = WriteStage::Block;
+        self.out.write(&header[..width])?;
+        self.out.write(&self.pending.data)?;
+        self.pending.clear();
+        self.pending_base = None;
+        self.clusters = clusters;
+        Ok(())
+    }
+    fn flush(&mut self) -> Result<(), WriteError> {
+        self.out.begin()?;
+        self.drain_cluster()?;
+        self.out.flush()
+    }
     fn receipt(&self, completion: OutputCompletion) -> WriteReceipt {
         WriteReceipt {
             completion,
             packets: self.packets,
             blocks: self.blocks,
+            clusters: self.clusters,
             end_offset: self.out.position,
             cues: self.cues.len(),
         }
@@ -1065,7 +1209,8 @@ impl<W: Write> LiveWriter<W> {
             )?,
         })
     }
-    /// Validate the entire block before emitting any of it. I/O failures are
+    /// Validate and accept a block, retaining at most one bounded Cluster. An
+    /// accepted block need not be emitted until flush, rollover or finish. I/O failures are
     /// terminal, including WouldBlock, so retry cannot duplicate a partial block.
     pub fn write_block(&mut self, block: EncodedBlock<'_>) -> Result<(), WriteError> {
         self.core.write_block(block)
@@ -1077,9 +1222,20 @@ impl<W: Write> LiveWriter<W> {
         if self.core.blocks == 0 {
             return Err(WriteError::Invalid("no blocks"));
         }
+        self.core.drain_cluster()?;
         self.core.out.flush()?;
         self.core.out.state = WriteState::Finished;
         Ok(self.core.receipt(OutputCompletion::Live))
+    }
+    /// Emit the pending finite Cluster and flush the sink without finalizing.
+    /// This bounds application-controlled live latency; I/O failures are terminal.
+    pub fn flush(&mut self) -> Result<(), WriteError> {
+        self.core.flush()
+    }
+    /// Retained Cluster payload bytes. After failure, some of these bytes may
+    /// already have reached the sink; this is not a resumable byte count.
+    pub fn buffered_bytes(&self) -> usize {
+        self.core.pending.data.len()
     }
     /// Current terminal/writing state.
     pub fn state(&self) -> WriteState {
@@ -1089,7 +1245,8 @@ impl<W: Write> LiveWriter<W> {
     pub fn position(&self) -> u64 {
         self.core.out.position
     }
-    /// Recover the sink without implicit finish, flush or successful receipt.
+    /// Recover the sink, discarding any pending Cluster without emission.
+    /// No implicit finish, flush or successful receipt is produced.
     pub fn into_inner(self) -> W {
         self.core.out.sink
     }
@@ -1120,7 +1277,8 @@ impl<W: Write + Seek> IndexedWriter<W> {
             core: Core::new(out, tracks, config, true)?,
         })
     }
-    /// Write one validated block/finite Cluster. Cue limits are checked and
+    /// Accept a block into bounded packing or write an oversized block directly.
+    /// Cue limits are checked and
     /// reserved before output; no cue or packet is silently dropped.
     pub fn write_block(&mut self, block: EncodedBlock<'_>) -> Result<(), WriteError> {
         self.core.write_block(block)
@@ -1150,6 +1308,7 @@ impl<W: Write + Seek> IndexedWriter<W> {
     }
     fn finish_inner(&mut self) -> Result<WriteReceipt, WriteError> {
         let c = &mut self.core;
+        c.drain_cluster()?;
         let cues_at = c.out.position - c.body;
         c.prefix.clear();
         c.prefix.header(CUES, c.cue_bytes)?;
@@ -1159,9 +1318,7 @@ impl<W: Write + Seek> IndexedWriter<W> {
             .checked_add(c.prefix.data.len() as u64)
             .and_then(|n| n.checked_add(c.cue_bytes))
             .ok_or(WriteError::Limit("final output offset"))?;
-        if end - c.body > MAX_SIZE {
-            return Err(WriteError::Limit("Segment size"));
-        }
+        check_segment_end(end, c.body, true)?;
         c.out.stage = WriteStage::Cues;
         c.out.write(&c.prefix.data)?;
         for &entry in &c.cues {
@@ -1197,6 +1354,16 @@ impl<W: Write + Seek> IndexedWriter<W> {
         c.out.state = WriteState::Finished;
         Ok(c.receipt(OutputCompletion::Indexed))
     }
+    /// Emit the pending finite Cluster and flush the sink without finalizing.
+    /// This bounds application-controlled live latency; I/O failures are terminal.
+    pub fn flush(&mut self) -> Result<(), WriteError> {
+        self.core.flush()
+    }
+    /// Retained Cluster payload bytes. After failure, some of these bytes may
+    /// already have reached the sink; this is not a resumable byte count.
+    pub fn buffered_bytes(&self) -> usize {
+        self.core.pending.data.len()
+    }
     /// Current terminal/writing state.
     pub fn state(&self) -> WriteState {
         self.core.out.state
@@ -1205,8 +1372,27 @@ impl<W: Write + Seek> IndexedWriter<W> {
     pub fn position(&self) -> u64 {
         self.core.out.position
     }
-    /// Recover output without completing or repairing partial finalization.
+    /// Recover output, discarding pending media without emission, completion
+    /// or repair of partial finalization.
     pub fn into_inner(self) -> W {
         self.core.out.sink
+    }
+}
+
+#[cfg(test)]
+mod bounds_tests {
+    use super::*;
+    #[test]
+    fn unknown_segment_has_no_finite_length_encoding_cap() {
+        assert!(check_segment_end(MAX_SIZE + 8, 7, false).is_ok());
+        assert!(matches!(
+            check_segment_end(MAX_SIZE + 8, 7, true),
+            Err(WriteError::Limit("Segment size"))
+        ));
+        assert!(check_segment_end(u64::MAX, 7, false).is_ok());
+        assert!(matches!(
+            check_segment_end(6, 7, false),
+            Err(WriteError::Invalid(_))
+        ));
     }
 }

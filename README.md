@@ -107,17 +107,16 @@ The [qualification protocol](docs/qualification.md) defines equivalent-work
 checks required before performance comparisons. The measured consumer job does
 not establish interchangeable validation or completion guarantees.
 
-Initial [encoded WebM writing](docs/writing.md) separates live and indexed
+[Encoded WebM writing](docs/writing.md) separates live and indexed
 completion, with checked finalization and a staged remux example. Its
-[qualification](docs/writer-qualification.md) remains open, including an unfavorable
-long-file Cluster layout and broader multi-track checks. Container seeking is
+[qualification](docs/writer-qualification.md) covers bounded Cluster packing,
+six-hour output and mixed/multiple tracks, with a laced-padding playback limitation. Container seeking is
 available under the explicit [seek contract and qualification](docs/seeking.md). The sequential reader explicitly
 rejects unsupported transformations, CRC-32 and several general Matroska features.
 The pinned [MediaRecorder/YouTube corpus](docs/packet-qualification.md) matches
 selected packet bytes with two independent demuxers. The
 [Opus timing contract](docs/opus-timing.md) includes independently checked
-mono/stereo start/end trimming. Broader decoded-audio coverage and writer
-qualification remain unfinished. It does not decode Opus,
+mono/stereo start/end trimming. Broader decoded-audio coverage remains unfinished. It does not decode Opus,
 fetch URLs or recognize speech.
 The repository is private, package publication is disabled, hosted Actions are
 disabled and no release artifact is published. A distribution license has not

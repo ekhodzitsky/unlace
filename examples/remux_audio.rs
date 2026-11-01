@@ -98,10 +98,11 @@ fn remux(
                             }
                     })
                     .ok_or("selected audio metadata missing")?;
-                // Use one-nanosecond ticks explicitly so no source clock is rounded, even
-                // when Info follows Tracks. This changes the unit, not presentation times.
+                // Preserve the known source tick scale so normal packets can share a
+                // Cluster. If Info follows Tracks, use exact nanosecond ticks;
+                // that fallback may need more Clusters, but never rounds clocks.
                 let config = WriteConfig {
-                    timestamp_scale_ns: 1,
+                    timestamp_scale_ns: reader.info().map_or(1, |info| info.timestamp_scale_ns),
                     ..Default::default()
                 };
                 let tracks = [TrackConfig::from_audio(track)?];
@@ -215,8 +216,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Output published; staging cleanup failed: {error}");
     }
     println!(
-        "input={source_completion:?} output={:?} packets={} blocks={} cues={} bytes={}",
-        receipt.completion, receipt.packets, receipt.blocks, receipt.cues, receipt.end_offset
+        "input={source_completion:?} output={:?} packets={} blocks={} clusters={} cues={} bytes={}",
+        receipt.completion,
+        receipt.packets,
+        receipt.blocks,
+        receipt.clusters,
+        receipt.cues,
+        receipt.end_offset
     );
     Ok(())
 }

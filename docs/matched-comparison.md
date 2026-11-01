@@ -4,8 +4,8 @@ Measured locally on 2026-11-01 against unlace source
 `2c0bc898ccd8637f9cbe644b0eb50898e196f5d5` (unpublished Cargo 0.1.0).
 This report measures a defined packet-consumer job. It does not establish an
 overall library ranking, general Matroska compatibility or equal validation
-and completion guarantees. Writing and broader decoded-audio qualification
-remain unfinished. Raw sources, licensed media, adapters and process records
+and completion guarantees. At the measured revision, writing and broader
+decoded-audio qualification remained unfinished. Raw sources, licensed media, adapters and process records
 stay local under the repository's local-only policy.
 
 ## Revisions and build
@@ -549,3 +549,12 @@ single machine, small original adversarial inputs, silent long-duration packets,
 conditional FFmpeg precision reconstruction, fresh-handle seeks, different native
 completion guarantees and no equivalent-work writer comparison yet. Ordinary
 unlace checks remain dependency-free and do not require these research tools.
+
+## Later writer observation
+
+The separate [writer qualification](writer-qualification.md) records a laced Opus
+fixture for which normal pinned FFmpeg playback repeats whole-block padding on
+each frame. Its public packet positions permit correct block grouping in the
+independent decode adapter. The measurements in this report compare selected
+packet metadata, not playback or decoded trim; they are unchanged by that later
+observation. Packet-field admission must not be read as a playback guarantee.

@@ -3,9 +3,9 @@
 The unreleased `write` module writes already encoded Opus/Vorbis audio and
 VP8/VP9 video. It performs no encoding, decoding, resampling, sample trimming or
 codec random-access detection. It is a container writer with an explicit subset,
-not a general Matroska remuxer. The initial
+not a general Matroska remuxer. The
 [writer qualification](writer-qualification.md) records independent output checks
-and remaining work. No writer performance or universal compatibility claim is made.
+and their limits. No writer performance or universal compatibility claim is made.
 
 ## Ownership and API
 
@@ -23,15 +23,26 @@ Fixed, Xiph or Ebml lacing to retain a whole block. None lacing and single-frame
 laced representations are rejected. Original bytes, frame order/boundaries,
 track numbers/UIDs, CodecPrivate, enabled/lacing flags, supported audio/video
 settings, DefaultDuration, CodecDelay and SeekPreRoll remain unchanged. The
-writer borrows frame slices only during the call and sends them to the sink
-without retaining or concatenating packet payloads.
+writer borrows frame slices only during the call. Normal blocks are copied into
+one bounded pending Cluster; an oversized valid block is sent directly to a
+standalone Cluster without retaining its payload.
 
-Blocks are written in caller order, with one finite Cluster per block. This
-permits direct streaming without pending media storage or a recording history.
-It also increases file overhead and Cluster count; readers that retain every
-Cluster can require much more memory. It is a deliberate current layout, not a
-claim of optimal muxing. A large seek catalogue may need an explicit larger
-allowance. The writer does not silently reorder, combine, split or discard blocks.
+Blocks remain in caller order. Defaults pack finite Clusters with at most 1 MiB
+of pending payload and less than one second of raw block-origin span. The signed
+16-bit relative timestamp range can close a Cluster sooner. Size, time and tick
+bounds never split a block or change lacing. A valid block larger than the buffer
+gets its own direct-write Cluster; it does not force a larger retained buffer.
+Set `max_cluster_duration_ns` or `max_cluster_buffer` to zero to disable packing.
+
+`write_block` accepts data but may not yet emit it. `buffered_bytes()` reports
+retained payload length; capacity and allocator overhead are additional. After
+an I/O failure some retained bytes may already have reached the sink, so this is
+not a resumable count. `position()` is the confirmed sink cursor, not a planned
+end including buffered media. Explicit `flush()` emits the pending finite Cluster
+and flushes the sink while leaving the writer in Writing. Use it to control live
+latency; the media-time span is not a wall-clock timer or background task.
+The writer never reorders or discards accepted blocks, except that explicit
+extraction/Drop aborts and discards any pending data without a finish receipt.
 
 Call `finish` explicitly, check its result, and retain `WriteReceipt` when a
 consumer needs evidence of successful creation. `into_inner` and Drop never
@@ -55,7 +66,9 @@ the last laced frame when DefaultDuration makes its time known. Unknown later
 lace timestamps remain unknown. A negative raw clock uses Cluster Timestamp zero
 and a signed relative timestamp, down to -32,768 ticks; other Cluster timestamps
 fit u64. All presentation/delay arithmetic is checked in i128. A caller chooses
-a finer scale when source clocks need it; the example uses one-nanosecond ticks.
+a finer scale when source clocks need it. The example preserves an already
+available source scale and uses exact one-nanosecond ticks if Info follows Tracks.
+Fine ticks can force more Clusters; clock precision is never traded for packing.
 
 Whole-block signed DiscardPadding is written as metadata once, without changing
 encoded bytes. Positive means discard from the block end; negative from its
@@ -79,7 +92,7 @@ other references. A keyframe with references is inconsistent and rejected.
 
 Live mode requires a fresh exclusive sink at its logical start. It emits an
 unknown-size Segment and finite Clusters, without Cues or retained index history.
-`finish` flushes and returns `OutputCompletion::Live`. There is no on-wire marker
+`finish` emits pending media, flushes and returns `OutputCompletion::Live`. There is no on-wire marker
 proving that a live receiver obtained every intended packet. Both stopping without
 finish and a completed live file can therefore demux as UnknownSizeSegment.
 
@@ -92,10 +105,10 @@ claim that an index proves decoder readiness. Reaching a cue count/byte limit
 refuses the next indexed block before writing it; entries are never dropped
 silently. At least one eligible cue is required to finish indexed output.
 
-Indexed finish appends finite Cues, patches a reserved front SeekHead for Info,
+Indexed finish first emits pending media, then appends finite Cues, patches a reserved front SeekHead for Info,
 Tracks and Cues, flushes those writes, patches the eight-byte finite Segment
 length, restores the end position and flushes again. Only success returns
-`OutputCompletion::Indexed`. It records packet/block/cue counts and the end
+`OutputCompletion::Indexed`. It records separate packet/block/Cluster/cue counts and the end
 position. No Duration is invented from the last timestamp when encoded duration
 is unknown. Both modes reject finishing an empty recording.
 
@@ -136,14 +149,15 @@ and platform-specific publication policies remain application responsibilities.
 ## Limits and supported metadata
 
 Defaults allow 64 tracks, 4 MiB serialized initial metadata, 16 MiB block/frame
-payloads, 256 frames, a 64 KiB lace header, 65,536 cues, 8 MiB serialized Cues and
+payloads, 1 MiB pending Cluster payload, 256 frames, a 64 KiB lace header, 65,536
+cues, 8 MiB serialized Cues and
 1,000,000 sink calls per operation. Track count and aggregate variable metadata
 are checked before scanning codec initialization. Serialization uses fallible
 reservation. Retained vector capacity can exceed lengths through standard
 allocation growth; it is bounded by configured payload/count limits rather than
 recording duration. One header buffer is reused, with separate small envelope and
-BlockGroup suffix buffers. No full media recording or packet payload history is
-retained. Caller-selected sinks such as Vec can themselves retain all output.
+BlockGroup suffix buffers, plus one bounded pending Cluster. No full media
+recording or unbounded packet history is retained. Caller-selected sinks such as Vec can themselves retain all output.
 
 Live mode retains no cues. Indexed mode retains four u64 values per cue plus
 vector capacity/allocator overhead. Caller-selected cue intervals control index
@@ -151,7 +165,9 @@ density; an explicit limit refusal remains possible on a long or densely indexed
 recording. Frame/lace/reference loops and metadata work are bounded independently;
 finish work is bounded by retained cue count and the I/O-call allowance. Sink
 implementation latency and allocator internals are outside those work counters.
-The format's finite size range and checked u64 counters also remain explicit.
+Indexed output obeys the format's finite Segment size range. Live unknown-size
+Segments have no artificial finite-length encoding cap; checked u64 cursor/count
+bounds still apply. Arithmetic boundary tests do not claim petabyte-scale I/O.
 
 Opus initialization is validated. Vorbis private data is checked for the three
 Xiph-delimited header signatures, not decoded or fully verified as codec setup.
@@ -182,8 +198,16 @@ boundaries. A finalized output from an unknown-size input proves completeness
 of the observed output bytes, not the original producer's intended recording.
 The example reports both input and output completion separately.
 
-Writing is an additive Rust API under Unreleased. Cargo remains the unpublished
-0.1.0 source milestone. It joins the pending next pre-1.0 minor source milestone
+The initial writing API and this packing update remain under Unreleased.
+Relative to the first writer source, `WriteConfig` literals need
+`max_cluster_duration_ns`, `WriteLimits` literals need `max_cluster_buffer`, and
+`WriteReceipt` literals/patterns must account for `clusters`. `blocks` counts
+encoded blocks, which no longer imply the same Cluster count. Default
+`write_block` now buffers one bounded Cluster: call `flush` or `finish` before
+observing emitted media; `into_inner` and Drop discard pending bytes. Setting
+either packing bound to zero restores per-block direct emission. This is an
+explicit incompatible source/API behavior change for the pending minor milestone.
+Cargo remains the unpublished 0.1.0 source milestone. It joins the pending next pre-1.0 minor source milestone
 already required by reader API changes; no release/tag/publication is implied.
 The crate's [SemVer policy](versioning.md) governs future compatibility. There is
 no separately versioned serialized writer continuation or checkpoint format.

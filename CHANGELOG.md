@@ -10,10 +10,15 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
   generic flush success is not atomic publication or storage durability.
 - Add a staged selected-audio remux example and writer regressions covering
   every-byte output failure, finalization faults and verified cue destinations.
-  Initial independent packet and mono/stereo PCM checks pass within documented
-  scope. Writer qualification remains open: the per-block Cluster layout has
-  unfavorable long-file resource behavior and needs bounded packing/multi-track
-  qualification. No Cargo version/release change is made.
+  Independent packet, mixed VP8/VP9, multiple-audio and scoped decoded checks
+  pass; record an ordinary FFmpeg laced-padding playback disagreement explicitly.
+- Pack finite Clusters within explicit byte/time/tick bounds, with a direct path
+  for oversized blocks, explicit flush and separate block/Cluster counts. The
+  six-hour output now completes classic libwebm under the original memory cap.
+  Breaking relative to the initial writer: configuration/receipt fields expand
+  and default block writes buffer one Cluster until rollover, flush or finish.
+  See the writing migration notes; zero packing bounds restore direct emission.
+  This joins the pending minor source milestone; no Cargo version/release change.
 
 - Record pinned selected-audio comparisons against five competitor libraries,
   including separate classic/incremental libwebm adapters. Gate exact fields

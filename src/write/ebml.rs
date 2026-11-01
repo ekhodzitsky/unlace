@@ -22,6 +22,21 @@ pub(super) fn vint(n: u64) -> Result<([u8; 8], usize), WriteError> {
     Ok(((n | (1u64 << (7 * w))).to_be_bytes(), w))
 }
 
+pub(super) fn header(id: u32, n: u64) -> Result<([u8; 12], usize), WriteError> {
+    let id_bytes = id.to_be_bytes();
+    let iw = ((32 - id.leading_zeros()) as usize).div_ceil(8);
+    let (size_bytes, sw) = size(n, None)?;
+    let mut bytes = [0; 12];
+    bytes[..iw].copy_from_slice(&id_bytes[4 - iw..]);
+    let width = iw + sw;
+    bytes[iw..width].copy_from_slice(&size_bytes[8 - sw..]);
+    Ok((bytes, width))
+}
+pub(super) fn wire_size(n: u64) -> Result<u64, WriteError> {
+    let (_, w) = size(n, None)?;
+    Ok(4 + w as u64 + n)
+}
+
 pub(super) struct Bytes {
     pub data: Vec<u8>,
     pub limit: usize,

@@ -176,18 +176,20 @@ adapter rebuild reproduces all timed executable SHA-256 values; an audit verifie
 all admitted trial counts/digests/preroll, corpus hashes and measured artifact
 pins. No remote workflow or release artifact was created.
 
-Initial encoded output adds 22 writer regressions and one executable module
-example. The [writer contract](writing.md) and [partial qualification](writer-qualification.md)
-distinguish checked live/indexed receipts, preflight resource refusals, terminal
-partial I/O, exact trim/clock handling and staged file publication. Short/native
-producer/Vorbis/six-hour audio output passes the documented counterparts within
-the stated limits; complete mono/stereo independent PCM is unchanged. Classic
-full-load long-output resource failures remain recorded and writer qualification
-stays open for bounded Cluster packing and broader multi-track/fault checks.
+Encoded output has 30 writer integration tests and one internal arithmetic test.
+The [writer contract](writing.md) and [qualification](writer-qualification.md)
+distinguish live/indexed receipts, terminal partial I/O, exact trim/clocks and
+staged publication. Bounded Cluster packing admits all six-hour packets through
+classic/incremental libwebm and Nestegg under the original cap. Independent mixed
+VP8/VP9 and multiple-audio checks preserve declared fields; complete mono/stereo
+PCM is unchanged. The initial layout failure and ordinary FFmpeg laced-padding
+playback disagreement remain explicit. A separate whole-block decoder check
+agrees for all lacing modes; it does not establish ordinary playback compatibility.
 
-All initial writer gates pass locally with Rust 1.89.0: 130 integration tests and
-five doctests in debug/release, strict all-target Clippy, formatting, warning-free
-rustdoc and zero third-party dependencies. Rebuilding the final source reproduces
-all 14 qualified output hashes byte for byte. Publication failure checks preserve
-staging data and existing destination contents. Cargo stays unpublished 0.1.0;
-this additive API joins the pending source milestone without a release/tag.
+The packing source passes Rust 1.89.0 debug/release tests (138 integration tests,
+one unit test and five doctests), strict all-target Clippy,
+formatting, warning-free rustdoc and the zero-dependency check. Generated tests
+exercise 96 writer configurations in both modes. Source replay verifies the
+qualified output identities. Cargo stays unpublished 0.1.0; the new configuration/
+receipt fields and default buffering join the pending incompatible minor source
+milestone described in the migration notes. No release/tag/publication is implied.
