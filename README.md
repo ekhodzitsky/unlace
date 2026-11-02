@@ -12,7 +12,8 @@ general or production-qualified Matroska reader. The earlier 0.1.0 milestone
 contained only integer parsing. No public crate has been released.
 
 **Readiness:** public release is blocked by the missing owner-selected license
-and publication decision; general production readiness is not established. See
+and publication decision; general production readiness is not established. The
+[reference pilot](docs/reference-pilot.md) retains failed large ranged criteria. See
 the [release and production assessment](docs/release-readiness.md) for passed gates,
 remaining qualification gaps and the narrower experimental path.
 

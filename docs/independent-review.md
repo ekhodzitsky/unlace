@@ -1,0 +1,67 @@
+# Scoped second-agent review
+
+On 2026-11-02 the owner explicitly authorized a separate agent in this session
+to review unlace. The reviewer had read-only scope over critical container
+contracts, test tooling, the reader refactor, performance evidence and the
+reference pilot. It created only local isolated reproductions and records;
+accepted sanitized findings and closures are recorded here. This is separate
+from the implementation author's self-review, but it is not an external human
+security audit, certification or proof of general production readiness.
+
+## Production scope and result
+
+The review covered framing/inherited finite boundaries and lookahead; late
+BlockGroup metadata; exact i128 clocks/Opus delay and whole-block trim; source
+identity/count/EOF latches; cue boundary/track/time/relative destinations; deferred
+packet publication during cancellation; and writer preflight/partial-I/O,
+packed/direct output and finalization state. No reproducible production defect
+was found against the documented supported contracts. Eighty-five targeted
+Rust 1.89 tests passed during the initial review.
+
+A later read-only pass reviewed the compatible 0.2.1 buffer refactor at source
+`79a1ebe`, including stale range/scratch contents, partial reads, cancellation,
+restart and retained memory. A targeted 256-frame/empty/unselected-block regression
+passes both versions; it is promoted into the normal suite. All 21 seek tests
+pass against the new library. Per-instance retained size increases by exactly
+8,192 bytes on the measured host, as documented in [reader profiling](reader-performance.md).
+No concrete defect was found in this change.
+
+## Reproduced tooling findings and closure
+
+| Finding | Missed-before evidence | Correction and closure |
+| --- | --- | --- |
+| False refusal | An isolated mutant refusing every valid block passed all 157 original writer seeds because expected records depended on Ok. | A guaranteed-valid lane independently requires three accepted blocks, known packet counts and successful finish in both modes. The portable control fails before the enhancement and detects the mutant afterward. |
+| Missing successful terminal state | Removing the live Finished assignment still passed all seeds after the acceptance lane. | Every successful explicit/automatic finish must set Finished before terminal no-I/O reuse is checked. Both writer modes have mutation controls. |
+| Wrong failure terminal state | Setting Finished instead of Failed for I/O error passed all seeds despite terminal reuse checks. | Typed I/O/position/I/O-budget errors require Failed; invalid/unsupported preflight errors require Writing; state errors must match the actual state. Wrong-state and poisoned-preflight controls are detected. |
+
+The final portable writer control passes clean code and detects all seven
+intentional mutants at their intended assertions. New bounded campaigns record
+each harness revision separately in [writer qualification](writer-fuzzing.md).
+These were fuzz-oracle false negatives, not demonstrated production bugs; ordinary
+writer tests and independent fixed-output checks supplied separate protection.
+
+During the local pilot, review also identified wrapper timeout cleanup: killing
+GNU time alone can leave its child. The corrected local supervisor kills its
+owned POSIX process group; a controlled before/after reproduction confirms closure.
+All original observed trials had already finished within their wall ceilings.
+This tooling correction does not change library APIs or guarantee provider latency.
+
+## Evidence and claims review
+
+The reviewer checked 282 performance values/counts against the retained jobs and
+summary, plus historical/natural/writer/paused/seek qualification counts. One
+inconsistent Callgrind summary/footer convention differed by two instructions
+and was corrected. No unsupported superiority or validation claim was found in
+the [paired performance report](performance-0.2.1.md). Small regressions, broad
+ranges, adapter/cache effects and the retained memory cost remain visible.
+
+The [reference pilot](reference-pilot.md) preserves both cohorts and its failed
+criteria: three secondary-audio call refusals per cohort and one later large-file
+first-latency miss. Pilot digests cover a stated field subset; ranged windows
+normally do not reach suffix End. Consumer/input hashes and retrospective wrapper
+pins are distinguished. Staged-output readbacks, no-clobber/truncation controls
+and the absence of directory crash-durability evidence are explicit.
+
+No further confirmed production issue remained from this scoped review. It does
+not replace a consumer's integration, provider/storage failure policy, actual
+acceptance budgets, platform qualification or owner distribution decisions.

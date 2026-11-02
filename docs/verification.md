@@ -230,3 +230,10 @@ contracts. Full gates cover 144 integration tests, two unit tests and five
 doctests; complete historical/natural/large manifests, writer hashes, paused
 reads, seek suffixes and fresh reader/writer fuzz campaigns pass. Its source
 cost profiles are distinct from real-clock timing and broad production approval.
+
+
+The [second-agent review](independent-review.md) closes reproduced writer-oracle
+and local supervisor gaps. The [reference pilot](reference-pilot.md) is a completed
+evaluation with failed large ranged criteria, not a blanket pass or application
+rollout. Its digest subset, window-only scope, fixed budgets, retrospective
+wrapper pins and staged-file durability boundaries remain explicit.
