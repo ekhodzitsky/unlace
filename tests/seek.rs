@@ -405,6 +405,9 @@ use unlace::source::{Snapshot, SourceError};
 struct State {
     bytes: Vec<u8>,
     revision: u128,
+    snapshots: u64,
+    cancel_snapshot_at: Option<u64>,
+    fault_snapshot_at: Option<u64>,
     available: usize,
     hole: Option<(usize, usize)>,
     fault: Option<usize>,
@@ -423,6 +426,9 @@ impl Ranges {
         Self(Rc::new(RefCell::new(State {
             bytes,
             revision: 1,
+            snapshots: 0,
+            cancel_snapshot_at: None,
+            fault_snapshot_at: None,
             available,
             hole: None,
             fault: None,
@@ -437,7 +443,14 @@ impl Ranges {
 }
 impl ReadAt for Ranges {
     fn snapshot(&mut self) -> io::Result<Snapshot> {
-        let s = self.0.borrow();
+        let mut s = self.0.borrow_mut();
+        s.snapshots += 1;
+        if s.cancel_snapshot_at == Some(s.snapshots) {
+            s.cancel.store(true, Ordering::Relaxed);
+        }
+        if s.fault_snapshot_at == Some(s.snapshots) {
+            return Err(io::Error::other("injected snapshot failure"));
+        }
         Ok(Snapshot {
             length: s.bytes.len() as u64,
             revision: s.revision,
@@ -1069,17 +1082,19 @@ fn wide_before_first_cue_scan_reports_read_limit_and_preserves_active_suffix() {
         }
     }
     assert_eq!(actual[1].lace, (0, 2));
-    assert!(matches!(
-        reader.seek(
-            SeekRequest {
-                timestamp_ns: 0,
-                preroll_ns: 0
-            },
-            &cancel
-        ),
-        Err(SeekError::Source(SourceError::Limit))
-    ));
-    assert_eq!(reader.read_report().calls, 50);
+    for _ in 0..16 {
+        assert!(matches!(
+            reader.seek(
+                SeekRequest {
+                    timestamp_ns: 0,
+                    preroll_ns: 0
+                },
+                &cancel
+            ),
+            Err(SeekError::Source(SourceError::Limit))
+        ));
+        assert_eq!(reader.read_report().calls, 50);
+    }
     match reader.poll(&cancel).unwrap() {
         SeekEvent::Packet(p) => {
             let p = packet(p);
@@ -1179,5 +1194,245 @@ fn no_track_cues_fallback_fits_bounded_reads_for_later_audio_track() {
             }
         }
         assert_eq!(next, 128);
+    }
+}
+
+#[test]
+fn repeated_fallback_reuses_verified_summaries_with_unsorted_times_and_absent_tracks() {
+    let cancel = AtomicBool::new(false);
+    for unknown in [false, true] {
+        for cues in [None, Some(3)] {
+            for (absent, tied) in [(false, false), (true, false), (false, true)] {
+                let mut f = fixture_options(unknown, cues, 1, 32);
+                change(&mut f.bytes[f.clusters[1] as usize..], 0xe7, 200, 300);
+                if !tied {
+                    change(&mut f.bytes[f.clusters[2] as usize..], 0xe7, 300, 200);
+                }
+                if absent {
+                    let third = &mut f.bytes[f.clusters[2] as usize..];
+                    for encoded in [
+                        block(2, 0, 0x80, &[3, 10]),
+                        block(2, 20, 4, &[1, 3, 20, 3, 30]),
+                    ] {
+                        let at = third
+                            .windows(encoded.len())
+                            .position(|b| b == encoded)
+                            .unwrap();
+                        third[at] = 0x83;
+                    }
+                }
+                let expected = sequential(&f.bytes);
+                let source = Ranges::new(f.bytes);
+                let mut reader = ranged(source.clone(), SeekLimits::default());
+                prepare(&mut reader, &cancel).unwrap();
+                reader
+                    .seek(
+                        SeekRequest {
+                            timestamp_ns: 350_000,
+                            preroll_ns: 0,
+                        },
+                        &cancel,
+                    )
+                    .unwrap();
+                assert!(reader.read_report().calls > 0);
+                for (timestamp_ns, chosen) in [
+                    (280_000, if absent || tied { 0 } else { 2 }),
+                    (0, 0),
+                    (350_000, 1),
+                ] {
+                    let calls = source.0.borrow().calls;
+                    let result = reader
+                        .seek(
+                            SeekRequest {
+                                timestamp_ns,
+                                preroll_ns: 0,
+                            },
+                            &cancel,
+                        )
+                        .unwrap();
+                    assert_eq!(result.cluster_offset, f.clusters[chosen]);
+                    assert_eq!(
+                        source.0.borrow().calls,
+                        calls,
+                        "verified fallback re-read source prefixes"
+                    );
+                    assert_eq!(
+                        (reader.read_report().calls, reader.read_report().bytes),
+                        (0, 0)
+                    );
+                    assert_eq!(
+                        suffix(&mut reader, &cancel, result.cluster_offset),
+                        expected
+                            .iter()
+                            .filter(|p| p.offset >= result.cluster_offset)
+                            .cloned()
+                            .collect::<Vec<_>>()
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn cached_fallback_still_checks_cancellation_and_source_revision() {
+    let f = fixture_options(false, None, 1, 32);
+    let expected = sequential(&f.bytes);
+    let source = Ranges::new(f.bytes);
+    let cancel = source.0.borrow().cancel.clone();
+    let mut reader = ranged(source.clone(), SeekLimits::default());
+    prepare(&mut reader, &cancel).unwrap();
+    let request = SeekRequest {
+        timestamp_ns: 180_000,
+        preroll_ns: 0,
+    };
+    let result = reader.seek(request, &cancel).unwrap();
+    let first = loop {
+        if let SeekEvent::Packet(p) = reader.poll(&cancel).unwrap() {
+            break packet(p);
+        }
+    };
+    assert_eq!(first, expected[0]);
+    cancel.store(true, Ordering::Relaxed);
+    assert!(matches!(
+        reader.seek(request, &cancel),
+        Err(SeekError::Cancelled)
+    ));
+    cancel.store(false, Ordering::Relaxed);
+    assert_eq!(
+        suffix(&mut reader, &cancel, result.cluster_offset),
+        expected[1..]
+    );
+    let calls = source.0.borrow().calls;
+    reader.seek(request, &cancel).unwrap();
+    assert_eq!(source.0.borrow().calls, calls);
+    source.0.borrow_mut().revision += 1;
+    assert!(matches!(
+        reader.seek(request, &cancel),
+        Err(SeekError::Source(SourceError::SourceChanged))
+    ));
+    source.0.borrow_mut().revision = 1;
+    assert!(matches!(
+        reader.seek(request, &cancel),
+        Err(SeekError::Source(SourceError::SourceChanged))
+    ));
+    assert_eq!(source.0.borrow().calls, calls);
+}
+
+#[test]
+fn failed_public_seek_does_not_publish_staged_fallback_cache() {
+    let build = || {
+        let f = fixture_options(false, Some(2), 1, 32);
+        let expected = sequential(&f.bytes);
+        let cluster = f.clusters[0];
+        let source = Ranges::new(f.bytes);
+        let cancel = source.0.borrow().cancel.clone();
+        let mut reader = ranged(source.clone(), SeekLimits::default());
+        prepare(&mut reader, &cancel).unwrap();
+        reader
+            .seek(
+                SeekRequest {
+                    timestamp_ns: 180_000,
+                    preroll_ns: 0,
+                },
+                &cancel,
+            )
+            .unwrap();
+        loop {
+            if let SeekEvent::Packet(p) = reader.poll(&cancel).unwrap() {
+                assert_eq!(packet(p), expected[0]);
+                break;
+            }
+        }
+        (source, cancel, reader, expected, cluster)
+    };
+    let (probe, cancel, mut reader, _, _) = build();
+    let request = SeekRequest {
+        timestamp_ns: 0,
+        preroll_ns: 0,
+    };
+    let before = probe.0.borrow().snapshots;
+    reader.seek(request, &cancel).unwrap();
+    let advance = probe.0.borrow().snapshots - before;
+    for cancellation in [false, true] {
+        let (source, cancel, mut reader, expected, cluster) = build();
+        let at = source.0.borrow().snapshots + advance;
+        if cancellation {
+            source.0.borrow_mut().cancel_snapshot_at = Some(at - 1);
+        } else {
+            source.0.borrow_mut().fault_snapshot_at = Some(at);
+        }
+        let result = reader.seek(request, &cancel);
+        if cancellation {
+            assert!(matches!(result, Err(SeekError::Cancelled)));
+        } else {
+            assert!(matches!(
+                result,
+                Err(SeekError::Source(SourceError::Io { .. }))
+            ));
+        }
+        {
+            let mut state = source.0.borrow_mut();
+            state.cancel_snapshot_at = None;
+            state.fault_snapshot_at = None;
+            state.available = 0;
+        }
+        cancel.store(false, Ordering::Relaxed);
+        assert!(
+            matches!(
+                reader.seek(request, &cancel),
+                Err(SeekError::Source(SourceError::NeedRange(_)))
+            ),
+            "failed seek published a reusable summary cache"
+        );
+        let length = source.0.borrow().bytes.len();
+        source.0.borrow_mut().available = length;
+        // The two failed seek attempts must leave the buffered laced suffix intact.
+        assert_eq!(suffix(&mut reader, &cancel, cluster), expected[1..]);
+    }
+}
+
+#[test]
+fn fallback_summary_cache_never_substitutes_for_chosen_cue_attestation() {
+    let cancel = AtomicBool::new(false);
+    for time in [false, true] {
+        let mut f = fixture_options(false, Some(2), 1, 32);
+        if time {
+            change(&mut f.bytes, 0xb3, 100, 101);
+        } else {
+            change(&mut f.bytes, 0xf0, f.relative, f.relative + 1);
+        }
+        let mut reader = reader(f.bytes);
+        prepare(&mut reader, &cancel).unwrap();
+        reader
+            .seek(
+                SeekRequest {
+                    timestamp_ns: 0,
+                    preroll_ns: 0,
+                },
+                &cancel,
+            )
+            .unwrap();
+        assert!(matches!(
+            reader.seek(
+                SeekRequest {
+                    timestamp_ns: 180_000,
+                    preroll_ns: 0
+                },
+                &cancel
+            ),
+            Err(SeekError::Invalid { .. })
+        ));
+        assert!(reader.read_report().calls > 0);
+        assert!(matches!(
+            reader.seek(
+                SeekRequest {
+                    timestamp_ns: 0,
+                    preroll_ns: 0
+                },
+                &cancel
+            ),
+            Err(SeekError::Failed)
+        ));
     }
 }

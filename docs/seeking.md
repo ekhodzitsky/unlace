@@ -217,3 +217,32 @@ There is no new cached cluster-time assumption. A fallback still verifies the
 catalogued clusters on each seek, including repeated or backward requests. The
 [0.2.2 qualification](seek-performance-0.2.2.md) separates reduced logical calls
 from backing-cache traffic and measures first and repeated requests.
+
+
+## Verified fallback reuse in 0.2.3
+
+After a complete fallback scan and successful public seek commit, the catalogue
+retains the first selected-track block offset/raw ticks or verified absence for
+each Cluster. Repeated fallbacks inspect these summaries in original order and
+charge their original header-work counts against the same max_scan_headers cap.
+No chronological-order assumption or request-dependent timestamp is cached.
+Chosen Cues still require independent track/time/relative-position attestation.
+
+The ready cache belongs to the selected track and the reader's immutable source
+snapshot. Every operation retains its source/cancellation checks. Revision changes
+remain latched; correct provider revisions and immutability are required, not
+cryptographically established. A partial scan or failed cursor transaction does
+not publish staged summaries. Cached summary lookup performs no provider reads;
+ReadReport therefore reports zero calls/bytes for that lookup. Snapshot methods
+and subsequent suffix packet reads still perform their normal provider work.
+
+Storage is bounded by the existing catalogue max_entries, without a second cache
+allocation. Each entry includes summary fields even on chosen-cue-only readers.
+On the measured x86_64 target this adds 64 bytes per entry, or up to 4 MiB nominal
+extra entry storage at the default limit, plus capacity/allocator overhead.
+Larger existing preparation allocations can fail earlier. max_index_bytes still
+bounds finite Cues/SeekHead payloads separately. First preparation and fallback
+read work are unchanged. The [0.2.3 report](seek-cache-0.2.3.md) retains memory,
+first-use timing and failed criteria alongside reuse measurements. The earlier
+0.2.2 profile above is historical; its every-seek re-scan description no longer
+applies once a 0.2.3 fallback cache is committed.

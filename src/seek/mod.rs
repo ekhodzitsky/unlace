@@ -19,6 +19,8 @@ pub struct SeekLimits {
     /// Positional read budget for each prepare, seek or packet poll call.
     pub read: ReadLimits,
     /// Maximum retained Segment children and cue entries (each separately).
+    /// Each catalogue entry includes bounded fallback summary storage, even
+    /// when a chosen-cue seek does not use it.
     pub max_entries: usize,
     /// Aggregate finite Cues/SeekHead payload bytes.
     pub max_index_bytes: u64,
@@ -28,7 +30,8 @@ pub struct SeekLimits {
     pub max_positions_per_cue: usize,
     /// Maximum boundary/index steps in one preparation call.
     pub max_prepare_steps: usize,
-    /// Maximum headers inspected in a single seek, including fallback scans.
+    /// Maximum headers inspected or charged from reused validation in a single
+    /// seek, including fallback scans.
     pub max_scan_headers: u64,
 }
 impl Default for SeekLimits {
@@ -227,6 +230,10 @@ impl<S: ReadAt> Read for Input<S> {
 ///
 /// Prepare first, then explicitly seek and poll packets through suffix End.
 /// Index opening and subsequent seek I/O are reported separately per call.
+/// A successful fallback retains verified first-block summaries for this track
+/// and immutable source. Later fallbacks reuse them with the original scan-work
+/// charge and fresh snapshot checks, without re-reading those prefixes. Chosen
+/// cues still require their own block/time/relative-position attestation.
 /// A failed/cancelled seek leaves the prior packet cursor and buffered packets
 /// intact. Fatal index/container errors prevent further operations. Generic
 /// blocking providers cannot be interrupted; cancellation is checked between I/O.
@@ -368,12 +375,13 @@ impl<S: ReadAt> SeekReader<S> {
                 .timestamp_scale_ns,
             preroll: track.seek_preroll_ns,
         };
+        let cache_track = timing.track;
         let index = self
             .index
-            .as_ref()
+            .as_mut()
             .filter(|index| index.ready())
             .ok_or(SeekError::Configuration)?;
-        let result = index.locate(
+        let (result, cache_candidate) = index.locate(
             &mut self.demux.source_mut().source,
             timing,
             request,
@@ -385,6 +393,10 @@ impl<S: ReadAt> SeekReader<S> {
         self.demux.restart_cluster(result.cluster_offset)?;
         self.demux.source_mut().position = result.cluster_offset;
         self.from = Some(result.cluster_offset);
+        // No fallible operation may follow committing the verified summaries.
+        if cache_candidate {
+            index.commit_fallback(cache_track);
+        }
         Ok(result)
     }
     /// Read a suffix packet. NeedRange retains exact core continuation. Limit

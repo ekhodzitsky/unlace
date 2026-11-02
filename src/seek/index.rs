@@ -47,11 +47,14 @@ struct Work<'a> {
 }
 impl Work<'_> {
     fn step(&mut self) -> Result<(), SeekError> {
+        self.charge(1)
+    }
+    fn charge(&mut self, count: u64) -> Result<(), SeekError> {
         cancelled(self.cancel)?;
-        if self.remaining == 0 {
-            return Err(SeekError::Limit("scan headers"));
-        }
-        self.remaining -= 1;
+        self.remaining = self
+            .remaining
+            .checked_sub(count)
+            .ok_or(SeekError::Limit("scan headers"))?;
         Ok(())
     }
 }
@@ -148,6 +151,20 @@ fn header<S: ReadAt>(
 struct Entry {
     header: Header,
     end: u64,
+    // Valid only when Index::cached_track was committed after a successful seek.
+    // None then means the whole Cluster scan found no selected-track block.
+    cached_first: Option<Block>,
+    cached_steps: u64,
+}
+impl Entry {
+    fn new(header: Header, end: u64) -> Self {
+        Self {
+            header,
+            end,
+            cached_first: None,
+            cached_steps: 0,
+        }
+    }
 }
 #[derive(Clone, Copy, Debug)]
 struct Cue {
@@ -172,6 +189,7 @@ pub(super) struct Index {
     elements: usize,
     cues: Vec<Cue>,
     has_cues: bool,
+    cached_track: Option<u64>,
 }
 pub(super) struct Timing {
     pub track: u64,
@@ -209,6 +227,7 @@ impl Index {
             elements: 0,
             cues: Vec::new(),
             has_cues: false,
+            cached_track: None,
         })
     }
     pub fn ready(&self) -> bool {
@@ -246,26 +265,14 @@ impl Index {
             if !self.boundaries_done {
                 if let Some((cluster, position)) = self.unknown {
                     if position == self.end {
-                        self.add(
-                            Entry {
-                                header: cluster,
-                                end: position,
-                            },
-                            limits.max_entries,
-                        )?;
+                        self.add(Entry::new(cluster, position), limits.max_entries)?;
                         self.unknown = None;
                         self.position = position;
                         continue;
                     }
                     let child = header(input, position, self.end, self.size_width, cancel)?;
                     if top(child.id.value()) {
-                        self.add(
-                            Entry {
-                                header: cluster,
-                                end: position,
-                            },
-                            limits.max_entries,
-                        )?;
+                        self.add(Entry::new(cluster, position), limits.max_entries)?;
                         self.unknown = None;
                         self.position = position;
                     } else if cluster_child(child.id.value()) {
@@ -288,13 +295,7 @@ impl Index {
                     self.unknown = Some((next, next.data_offset));
                 } else {
                     let finish = end(next, self.end)?;
-                    self.add(
-                        Entry {
-                            header: next,
-                            end: finish,
-                        },
-                        limits.max_entries,
-                    )?;
+                    self.add(Entry::new(next, finish), limits.max_entries)?;
                     self.position = finish;
                 }
                 continue;
@@ -380,14 +381,18 @@ impl Index {
             .filter(|entry| entry.header.id.value() == CLUSTER)
             .ok_or_else(|| invalid(offset, "cue is not a real Cluster boundary"))
     }
+    pub fn commit_fallback(&mut self, track: u64) {
+        self.cached_track = Some(track);
+    }
     pub fn locate<S: ReadAt>(
-        &self,
+        &mut self,
         input: &mut RangeReader<S>,
         timing: Timing,
         request: SeekRequest,
         limits: SeekLimits,
         cancel: &AtomicBool,
-    ) -> Result<SeekResult, SeekError> {
+    ) -> Result<(SeekResult, bool), SeekError> {
+        let cached = self.cached_track == Some(timing.track);
         let preroll = request.preroll_ns.max(timing.preroll);
         let target = request
             .timestamp_ns
@@ -433,21 +438,38 @@ impl Index {
             } else {
                 Fallback::BeforeFirstCue
             };
+            // A partial or failed scan must never become reusable. Invalidate
+            // the old key before staging another track's summaries.
+            if !cached {
+                self.cached_track = None;
+            }
             let mut before: Option<(Entry, Block)> = None;
             let mut earliest: Option<(Entry, Block)> = None;
             for cluster in self
                 .entries
-                .iter()
+                .iter_mut()
                 .filter(|entry| entry.header.id.value() == CLUSTER)
             {
-                if let Some(first) = scan_optional(
-                    input,
-                    *cluster,
-                    self.size_width,
-                    timing.track,
-                    None,
-                    &mut work,
-                )? {
+                let first = if cached {
+                    // Reuse validation, but retain its original scan-work
+                    // charge. ReadReport continues to record actual I/O only.
+                    work.charge(cluster.cached_steps)?;
+                    cluster.cached_first
+                } else {
+                    let remaining = work.remaining;
+                    let first = scan_optional(
+                        input,
+                        *cluster,
+                        self.size_width,
+                        timing.track,
+                        None,
+                        &mut work,
+                    )?;
+                    cluster.cached_first = first;
+                    cluster.cached_steps = remaining - work.remaining;
+                    first
+                };
+                if let Some(first) = first {
                     let ns = timing.ns(first.ticks, first.offset)?;
                     if earliest.is_none_or(|(_, old)| first.ticks < old.ticks) {
                         earliest = Some((*cluster, first));
@@ -462,23 +484,26 @@ impl Index {
         };
         cancelled(cancel)?;
         input.check_snapshot()?;
-        Ok(SeekResult {
-            requested_ns: request.timestamp_ns,
-            declared_preroll_ns: timing.preroll,
-            required_preroll_ns: preroll,
-            preroll_target_ns: target,
-            actual_timestamp_ns: timing.ns(first.ticks, first.offset)?,
-            starts_before_preroll_target: timing.ns(first.ticks, first.offset)? <= target,
-            cluster_offset: cluster.header.offset,
-            block_offset: first.offset,
-            track_number: timing.track,
-            cue_time_ticks: chosen.map(|cue| cue.time),
-            fallback,
-            skipped_prefix: ByteExtent {
-                start: self.segment.data_offset,
-                end: cluster.header.offset,
+        Ok((
+            SeekResult {
+                requested_ns: request.timestamp_ns,
+                declared_preroll_ns: timing.preroll,
+                required_preroll_ns: preroll,
+                preroll_target_ns: target,
+                actual_timestamp_ns: timing.ns(first.ticks, first.offset)?,
+                starts_before_preroll_target: timing.ns(first.ticks, first.offset)? <= target,
+                cluster_offset: cluster.header.offset,
+                block_offset: first.offset,
+                track_number: timing.track,
+                cue_time_ticks: chosen.map(|cue| cue.time),
+                fallback,
+                skipped_prefix: ByteExtent {
+                    start: self.segment.data_offset,
+                    end: cluster.header.offset,
+                },
             },
-        })
+            fallback.is_some() && !cached,
+        ))
     }
 }
 
@@ -1023,5 +1048,176 @@ mod grouped_read_tests {
                 other => panic!("bad marker accepted or wrong error: {other:?}"),
             }
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod cached_work_tests {
+    use super::*;
+    use crate::source::{ReadLimits, Snapshot};
+    use std::{cell::Cell, rc::Rc};
+    struct Provider {
+        data: Vec<u8>,
+        calls: Rc<Cell<u64>>,
+    }
+    impl ReadAt for Provider {
+        fn snapshot(&mut self) -> io::Result<Snapshot> {
+            Ok(Snapshot {
+                length: self.data.len() as u64,
+                revision: 1,
+            })
+        }
+        fn read_at(&mut self, offset: u64, out: &mut [u8]) -> io::Result<usize> {
+            self.calls.set(self.calls.get() + 1);
+            let at = offset as usize;
+            let len = out.len().min(self.data.len() - at);
+            out[..len].copy_from_slice(&self.data[at..at + len]);
+            Ok(len)
+        }
+    }
+    fn element(id: u32, data: &[u8]) -> Vec<u8> {
+        assert!(data.len() < 127);
+        let raw = id.to_be_bytes();
+        let start = raw.iter().position(|&v| v != 0).unwrap();
+        let mut out = raw[start..].to_vec();
+        out.push(0x80 | data.len() as u8);
+        out.extend_from_slice(data);
+        out
+    }
+    fn fixture() -> (Index, RangeReader<Provider>, Rc<Cell<u64>>) {
+        let mut body = Vec::new();
+        for (time, track) in [(100u16, 2u8), (200, 3), (300, 2)] {
+            let mut child = element(0xe7, &time.to_be_bytes());
+            child.extend(element(0xa3, &[0x80 | track, 0, 0, 0x80, 0x55]));
+            body.extend(element(CLUSTER, &child));
+        }
+        let data = element(0x18538067, &body);
+        let calls = Rc::new(Cell::new(0));
+        let mut source = RangeReader::new(
+            Provider {
+                data,
+                calls: calls.clone(),
+            },
+            ReadLimits::default(),
+        )
+        .unwrap();
+        let length = source.snapshot().length;
+        let cancel = AtomicBool::new(false);
+        let segment = header(&mut source, 0, length, 8, &cancel).unwrap();
+        let mut index = Index::new(segment, 8, length).unwrap();
+        while index
+            .prepare(&mut source, SeekLimits::default(), &cancel)
+            .unwrap()
+            != Preparation::Ready
+        {}
+        (index, source, calls)
+    }
+    fn timing(track: u64) -> Timing {
+        Timing {
+            track,
+            delay: 7,
+            scale: 1000,
+            preroll: 0,
+        }
+    }
+    fn request() -> SeekRequest {
+        SeekRequest {
+            timestamp_ns: 350_000,
+            preroll_ns: 0,
+        }
+    }
+    #[test]
+    fn cached_work_bound_includes_verified_absence() {
+        let (mut index, mut source, calls) = fixture();
+        let cancel = AtomicBool::new(false);
+        let mut limits = SeekLimits {
+            max_scan_headers: 5,
+            ..Default::default()
+        };
+        source.begin_operation().unwrap();
+        assert!(matches!(
+            index.locate(&mut source, timing(2), request(), limits, &cancel),
+            Err(SeekError::Limit("scan headers"))
+        ));
+        assert_eq!(index.cached_track, None);
+        limits.max_scan_headers = 6;
+        source.begin_operation().unwrap();
+        let (cold, candidate) = index
+            .locate(&mut source, timing(2), request(), limits, &cancel)
+            .unwrap();
+        assert!(candidate);
+        assert_eq!(index.cached_track, None);
+        let clusters: Vec<_> = index
+            .entries
+            .iter()
+            .filter(|e| e.header.id.value() == CLUSTER)
+            .collect();
+        assert_eq!(clusters.len(), 3);
+        assert!(clusters[1].cached_first.is_none());
+        assert_eq!(
+            clusters.iter().map(|e| e.cached_steps).collect::<Vec<_>>(),
+            [2, 2, 2]
+        );
+        index.commit_fallback(2);
+        source.begin_operation().unwrap();
+        let before = calls.get();
+        limits.max_scan_headers = 5;
+        assert!(matches!(
+            index.locate(&mut source, timing(2), request(), limits, &cancel),
+            Err(SeekError::Limit("scan headers"))
+        ));
+        assert_eq!(calls.get(), before);
+        assert_eq!(source.report().calls, 0);
+        limits.max_scan_headers = 6;
+        source.begin_operation().unwrap();
+        let (cached, candidate) = index
+            .locate(&mut source, timing(2), request(), limits, &cancel)
+            .unwrap();
+        assert!(!candidate);
+        assert_eq!(cached, cold);
+        assert_eq!(calls.get(), before);
+    }
+    #[test]
+    fn failed_other_track_invalidates_before_overwriting() {
+        let (mut index, mut source, calls) = fixture();
+        let cancel = AtomicBool::new(false);
+        let full = SeekLimits {
+            max_scan_headers: 6,
+            ..Default::default()
+        };
+        let (old, candidate) = index
+            .locate(&mut source, timing(2), request(), full, &cancel)
+            .unwrap();
+        assert!(candidate);
+        index.commit_fallback(2);
+        source.begin_operation().unwrap();
+        let short = SeekLimits {
+            max_scan_headers: 3,
+            ..Default::default()
+        };
+        assert!(matches!(
+            index.locate(&mut source, timing(3), request(), short, &cancel),
+            Err(SeekError::Limit("scan headers"))
+        ));
+        assert_eq!(index.cached_track, None);
+        assert!(
+            index
+                .entries
+                .iter()
+                .find(|e| e.header.id.value() == CLUSTER)
+                .unwrap()
+                .cached_first
+                .is_none()
+        );
+        source.begin_operation().unwrap();
+        let before = calls.get();
+        let (again, candidate) = index
+            .locate(&mut source, timing(2), request(), full, &cancel)
+            .unwrap();
+        assert!(candidate);
+        assert_eq!(again, old);
+        assert!(calls.get() > before);
+        assert_eq!(index.cached_track, None);
     }
 }

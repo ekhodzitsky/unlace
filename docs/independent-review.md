@@ -84,3 +84,24 @@ cohorts. The exploratory 1 GiB and fixed 128 MiB address-space allowances remain
 distinct. Review requested advisory-evicted wording where physical cold-cache
 state was not established; the readiness text was corrected. No unsupported
 superiority or large-source competitor admission claim was found.
+
+
+## 0.2.3 fallback summary reuse
+
+The authorized same-session reviewer inspected the inline summary design and
+transaction boundary. Independent copied-source tests confirm original work
+charges including verified absence, key invalidation before a partial different-
+track rebuild and no substitution for chosen-cue attestation. A mutation that
+commits readiness inside Index::locate before outer checks is detected by the
+public late-failure regression. Those work/key tests were promoted into the
+ordinary unit suite. Review found no production defect. Entry layout increases
+from 48 to 112 bytes on the measured target; memory pressure can cause earlier
+preparation allocation refusal. This tradeoff is explicit in the versioned report.
+
+The final report was checked against 111 measurement/count values with no
+numerical discrepancy. Phase refills, zero repeat logical reads, dynamic
+availability-hole counts, active clocks, suffix/manifest/output counts and both
+address-space caps agree with raw records. The report explicitly limits repeat
+timings to the same previously read packet window, retaining first-use failures,
+chosen-cue-only memory overhead and the absence of network/cold-destination
+latency qualification.

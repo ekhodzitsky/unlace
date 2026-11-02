@@ -8,8 +8,9 @@ Use SemVer. Before 1.0, incompatible public API changes increment the minor
 version; compatible changes increment the patch version when a source milestone
 is cut. Accumulate related work under Unreleased instead of cutting a release
 for every commit. Keep Cargo.toml, Cargo.lock, documentation and examples aligned.
-The current private source milestone is 0.2.2, with compatible bounded seek-prefix
-read grouping and expanded qualification. Version 0.2.1 introduced reader buffer
+The current private source milestone is 0.2.3, with compatible verified fallback
+summary reuse and expanded qualification. Version 0.2.2 grouped bounded seek-prefix
+reads. Version 0.2.1 introduced reader buffer
 reuse. The earlier 0.2.0 includes the accumulated
 incompatible reader/writer API additions after the initial integer-only 0.1.0.
 All remain unpublished. Do not tag or advertise a public release without a

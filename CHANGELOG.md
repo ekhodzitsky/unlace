@@ -4,6 +4,24 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+## 0.2.3 - 2026-11-02 (unpublished source milestone)
+
+- Reuse complete verified selected-track fallback summaries after a successful
+  seek transaction. Preserve source revision/cancellation checks, exact original
+  scan-work charges, catalogue order/ties, verified absence and chosen-cue
+  attestation. Failed scans never accumulate a usable cache; read reports remain
+  actual I/O. No default or explicit limit increases.
+- Record the storage tradeoff: private catalogue entries grow by 64 bytes on
+  Linux x86_64, up to 4 MiB extra nominal entry storage at the unchanged default
+  entry limit, plus capacity/allocator overhead. Chosen-cue-only readers also
+  reserve it; preparation allocations can fail earlier under memory pressure.
+- Add regressions for reused reads, unsorted/tied times, track absence, scan-work
+  charging, key invalidation, late failure/cancellation and forged cues. Retain
+  first-use latency failures and fresh-handle regressions in the paired report.
+- Define the supported experimental subset, compatibility and current private
+  reporting process. A monitored public contact and publication authorization
+  remain owner prerequisites; no public release or production approval follows.
+
 ## 0.2.2 - 2026-11-02 (unpublished source milestone)
 
 - Group bounded index-header and Block-prefix reads to reduce provider calls
