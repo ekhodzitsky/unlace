@@ -111,7 +111,8 @@ Matched selected-audio measurements and their limits are recorded in the
 [comparison report](docs/matched-comparison.md). Compiler source-region
 coverage for bounded optional fuzz targets and six-hour completeness evidence are
 recorded in [robustness qualification](docs/robustness.md); this is not branch
-coverage or a safety proof.
+coverage or a safety proof. The [natural/large corpus](docs/natural-corpus.md)
+adds full long-speech packet/PCM and 2.92 GB selected-track checks.
 The [qualification protocol](docs/qualification.md) defines equivalent-work
 checks required before performance comparisons. The measured consumer job does
 not establish interchangeable validation or completion guarantees.

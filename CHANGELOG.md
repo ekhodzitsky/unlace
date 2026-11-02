@@ -4,6 +4,11 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Qualify 5.39 hours of licensed natural speech and a physical 2.92 GB mixed
+  container with complete bounded native packet, decoded-span, continuation and
+  seek checks. Preserve fixture mux changes and the default mixed-seek budget
+  refusal explicitly; no application SLA or broad production claim follows.
+
 - Add an optional bounded writer state fuzz target with caller-record/output,
   preflight and terminal-I/O oracles, deterministic sink faults and separate
   versioned replay. Record native packet/seek checks and explicit campaign gaps;
