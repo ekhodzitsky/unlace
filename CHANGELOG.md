@@ -4,6 +4,11 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Add an optional bounded writer state fuzz target with caller-record/output,
+  preflight and terminal-I/O oracles, deterministic sink faults and separate
+  versioned replay. Record native packet/seek checks and explicit campaign gaps;
+  normal builds still need no extra tools or dependencies.
+
 - Record separate public-release and production readiness gates. Local packaging
   succeeds; license/publication decisions and broader production qualification
   remain open. No public release, license grant or visibility change is implied.

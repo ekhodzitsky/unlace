@@ -119,7 +119,9 @@ not establish interchangeable validation or completion guarantees.
 [Encoded WebM writing](docs/writing.md) separates live and indexed
 completion, with checked finalization and a staged remux example. Its
 [qualification](docs/writer-qualification.md) covers bounded Cluster packing,
-six-hour output and mixed/multiple tracks, with a laced-padding playback limitation. Container seeking is
+six-hour output and mixed/multiple tracks, with a laced-padding playback limitation.
+Separate [writer fuzz qualification](docs/writer-fuzzing.md) records bounded
+state mutations, caller-record oracles and native packet/seek checks. Container seeking is
 available under the explicit [seek contract and qualification](docs/seeking.md). The sequential reader explicitly
 rejects unsupported transformations, CRC-32 and several general Matroska features.
 The pinned [MediaRecorder/YouTube corpus](docs/packet-qualification.md) matches

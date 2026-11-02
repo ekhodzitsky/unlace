@@ -5,6 +5,10 @@ commit `c9958e0`. It is not a safety proof, full Matroska conformance statement,
 codec-decoding result or performance ranking. The executed campaigns and original
 fixtures below add evidence to the ordinary structural/timing tests.
 
+A later [writer state qualification](writer-fuzzing.md) uses a separate versioned
+input format and records its own campaigns. Historical reader counts below are
+not combined with writer coverage.
+
 ## Observable state and recovery
 
 | Outcome | Meaning and continuation |

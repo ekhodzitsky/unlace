@@ -36,7 +36,7 @@ for unrestricted production use. No license choice is made in this change.
 | Mandatory local gates | Rust 1.89 formatting, denied-warning all-target Clippy, debug/release tests, denied-warning rustdoc and zero-dependency check. 143 integration tests, two unit tests, five doctests. | Tests pass on the recorded Linux x86_64 setup, not an asserted platform matrix. |
 | Exact encoded audio | Complete real producer/synthetic manifests, all laces, Opus delay/whole-block padding, mono/stereo and added speech decoded-span checks. | Broader multichannel/video decoding and arbitrary codec setup are not qualified; decoding remains outside the library. |
 | Long input | All 1,080,001 packets of a six-hour encoded-silence container matched; bounded result processing. | Repeated silence and a 10.4 MB file do not establish behavior for diverse natural multi-hour or multi-gigabyte content. |
-| Hostile data and state | Every-byte small-fixture truncations/source faults, false offsets, range holes, cancellation and latched revision checks. Final audit campaign: 2,000 mutations plus 156 seed replays without a finding; historical campaigns remain separate. | Bounded short-input campaigns are not a safety proof. No new writer coverage-guided mutation campaign or exhaustive allocator-fault campaign is claimed. |
+| Hostile data and state | Every-byte small-fixture truncations/source faults, false offsets, range holes, cancellation and latched revision checks. Final audit campaign: 2,000 mutations plus 156 seed replays without a finding; historical campaigns remain separate. | Bounded short-input campaigns are not a safety proof. A later [writer campaign](writer-fuzzing.md) adds 30,000 mutations and native packet/seek checks without a finding. Exhaustive allocator-fault coverage is still absent. |
 | Writing | Exact current output hashes, independent readers, generated modes/laces/multiple tracks, every-byte writes, finalization seeks/flush faults, bounded packing and staged publication. | Generic Write + Seek cannot retract externally visible bytes after a failed final flush. Applications must honor receipt/staging/durability duties. |
 | Seeking | Actual structural boundary/cue/track/time checks and reported starts/preroll/fallback; suffix and source identity checks. | No decoder restoration guarantee. Default before-first-cue budget refuses the six-hour source; explicit larger qualification budget is not a changed default. |
 | Resources | Explicit metadata/block/index/depth and per-operation budgets, fallible storage, no lifetime media/result retention in the reader/live writer. | Provider latency, honest immutable revisions, external buffering, allocator internals and application result retention remain consumer contracts. |
@@ -59,9 +59,9 @@ latency budgets, and test its actual workload against those contracts.
    providers and real output failure/publication policies on those profiles.
 3. Obtain an independent review of framing, exact timing, index attestation and
    writer preflight/finalization state. Track findings and regressions in Backlog.
-4. Extend coverage-guided writer/state and allocator-fault testing with bounded
-   campaigns, immutable tool/source pins, retained minimized regressions and
-   explicit coverage gaps. Increase campaign scope for the chosen risk profile.
+4. Extend the [bounded writer campaigns](writer-fuzzing.md) for the chosen risk
+   profile and add allocator-fault testing. Preserve immutable tool/source pins,
+   minimized regressions for findings and explicit coverage gaps.
 5. Profile any throughput bottleneck against the consumer target before optimizing;
    rerun exact equivalence and matched measurements after changes. Preserve all
    current metadata/completeness guarantees and unfavorable results.

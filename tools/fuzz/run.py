@@ -34,18 +34,19 @@ def digest(data):
 def child_limits():
     resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024,) * 2)
     resource.setrlimit(resource.RLIMIT_CPU, (2, 2))
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
 
 def checked(command, **options):
     return subprocess.run(command, check=True, capture_output=True, **options).stdout
 
 
-def mutate(data, rng):
+def mutate(data, rng, target="reader"):
     data = bytearray(data)
     for _ in range(1 + rng.randrange(4)):
         operation = rng.randrange(9)
         if not data:
-            data.append(rng.randrange(5))
+            data.append(rng.randrange(5 if target == "reader" else 256))
         index = rng.randrange(len(data))
         if operation < 3:
             data[index] ^= 1 << rng.randrange(8)
@@ -56,7 +57,7 @@ def mutate(data, rng):
         elif operation == 5:
             del data[index:index + 1 + rng.randrange(min(len(data) - index, 16))]
         elif operation == 6:
-            token = rng.choice(TOKENS)
+            token = rng.choice(TOKENS if target == "reader" else [b"\x01", b"\x02", b"\x03", b"\xff" * 8, b"\0" * 17])
             data[index:index + len(token)] = token
         elif operation == 7 and len(data) > 1:
             start = rng.randrange(len(data))
@@ -183,9 +184,10 @@ def main():
     parser.add_argument('--out', required=True, type=Path, help='fresh directory below runs/')
     parser.add_argument('--llvm-tools', type=Path, required=True, help='compatible llvm-cov/profdata directory')
     parser.add_argument('--toolchain', default='1.89.0')
+    parser.add_argument('--target', choices=['reader', 'writer'], default='reader', help='independent reader-v1 or writer-v1 input format')
     parser.add_argument('--cases', type=int, default=10000)
     parser.add_argument('--seed', type=int, default=6012028)
-    parser.add_argument('--replay', type=Path, help='additional input directory in the five-mode format')
+    parser.add_argument('--replay', type=Path, help='additional input directory matching the selected target format')
     parser.add_argument('--minimize', type=Path, help='reduce a reproducing failure; no mutation campaign')
     args = parser.parse_args()
     if sys.platform != 'linux':
@@ -197,6 +199,14 @@ def main():
         parser.error('output must be a fresh directory below the ignored project runs/')
     replay = args.replay.resolve() if args.replay else None
     minimize = args.minimize.resolve() if args.minimize else None
+    if replay and (replay.parent / 'manifest.json').exists():
+        previous = json.loads((replay.parent / 'manifest.json').read_text())
+        if previous.get('target', 'reader') != args.target:
+            parser.error('replay target format differs from --target')
+    if minimize and (minimize.parent.parent / 'manifest.json').exists():
+        previous = json.loads((minimize.parent.parent / 'manifest.json').read_text())
+        if previous.get('target', 'reader') != args.target:
+            parser.error('finding target format differs from --target')
     llvm = args.llvm_tools.resolve()
     versions = {name: checked([str(llvm / name), '--version']).decode() for name in ('llvm-cov', 'llvm-profdata')}
     compiler = ['rustc', '+' + args.toolchain]
@@ -210,21 +220,24 @@ def main():
                      for directory in ('src', 'tools/fuzz')
                      for path in sorted((PROJECT / directory).rglob('*')) if path.is_file() and path.suffix in ('.py', '.rs')}
     manifest = dict(tool_versions=versions, source_sha256=source_hashes,
+                    target=args.target, input_format=args.target + '-v1',
                     seed=args.seed, mutations=args.cases, input_limit=8193,
-                    address_space_bytes=512 * 1024 * 1024, cpu_seconds=2, wall_seconds=3,
+                    address_space_bytes=512 * 1024 * 1024, cpu_seconds=2, wall_seconds=3, core_dumps=False,
                     note='Source-segment feedback only. Not branch coverage or proof of safety.')
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     flags = ['--edition', '2024', '-C', 'instrument-coverage', '-C', 'opt-level=1',
              '-C', 'overflow-checks=yes', '-C', 'debuginfo=1', '-F', 'unsafe_code']
     checked(compiler + flags + ['--crate-type', 'rlib', '--crate-name', 'unlace', 'src/lib.rs',
                                 '-o', str(output / 'libunlace.rlib')])
-    checked(compiler + flags + ['--cfg', 'test', 'tools/fuzz/target.rs', '--extern',
+    target_source = 'tools/fuzz/write_target.rs' if args.target == 'writer' else 'tools/fuzz/target.rs'
+    checked(compiler + flags + ['--cfg', 'test', target_source, '--extern',
                                 'unlace=' + str(output / 'libunlace.rlib'), '-o', str(output / 'target')])
     campaign = Campaign(output, llvm, random.Random(args.seed))
     if minimize:
         campaign.minimize(read_input(minimize))
         return
-    checked([sys.executable, 'tools/fuzz/seeds.py', str(output / 'corpus')])
+    seed_source = 'tools/fuzz/writer_seeds.py' if args.target == 'writer' else 'tools/fuzz/seeds.py'
+    checked([sys.executable, seed_source, str(output / 'corpus')])
     for directory in [output / 'corpus'] + ([replay] if replay else []):
         for path in sorted(directory.iterdir()):
             if path.is_file():
@@ -237,7 +250,7 @@ def main():
         campaign.run(data)
     initial = campaign.runs
     for _ in range(args.cases):
-        campaign.run(mutate(campaign.rng.choice(campaign.pool), campaign.rng))
+        campaign.run(mutate(campaign.rng.choice(campaign.pool), campaign.rng, args.target))
     summary = dict(campaign.summary(), seed=args.seed, mutations=args.cases, seed_replays=initial)
     (output / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
     print(json.dumps(summary), flush=True)

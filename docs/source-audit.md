@@ -81,7 +81,9 @@ corpus. It completes
 without a crash, timeout or oracle mismatch. Exact replay counts and source/tool
 hashes are retained in its manifest. Coverage feedback is source-region feedback,
 not branch coverage; the writer is exercised by the existing generated/fault
-suite, not a new coverage-guided writer campaign. A preliminary campaign used a
+suite, not a new coverage-guided writer campaign in that audit. The later
+[writer qualification](writer-fuzzing.md) records the added state target and
+campaigns separately. A preliminary campaign used a
 rejected presence-check hypothesis and is not attributed to final-source behavior.
 
 All 25 historical selected-audio inputs match the old complete manifests for

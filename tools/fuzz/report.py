@@ -57,7 +57,7 @@ def main():
                 for field in total:
                     total[field] += row[kind][field]
             rows.append(row)
-    summary = dict(replayed=len(seen), files=rows, totals=totals,
+    summary = dict(replayed=len(seen), target=manifest.get('target', 'reader'), files=rows, totals=totals,
                    note='Source region/line/function coverage, not branch coverage or safety proof.')
     (destination / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
     print(json.dumps(summary))
