@@ -4,9 +4,25 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+## 0.2.2 - 2026-11-02 (unpublished source milestone)
+
+- Group bounded index-header and Block-prefix reads to reduce provider calls
+  during preparation and verified fallback seeks. Preserve parent boundaries,
+  short-read validation, source identity, cancellation and completion checks,
+  without adding caches, allocation or dependencies or increasing limits.
+- Add regressions for bounded admission, repeated exact suffixes, header widths,
+  truncated parents and invalid markers across short reads/range retries.
+  Document grouped-request availability and error-order implications. Record
+  first/repeated seek measurements and the unchanged reference criteria in the
+  0.2.2 qualification report; historical failed trials remain visible.
+- Close the large fixture's secondary-track refusal within 500,000 calls. Retain
+  a 439 ms miss in the 41/42 passing fixed-budget follow-up and the much slower
+  advisory-evicted first-packet observations. No general production approval
+  follows from lower logical calls.
+
+
 - Adopt the owner-selected MIT license, include its notice in source packages
-  and resolve the licensing readiness gate. Publication remains disabled; API
-  and source milestone versions are unchanged.
+  and resolve the licensing readiness gate. Publication remains disabled.
 
 - Record the authorized second-agent review and bounded library-reference pilot.
   Preserve large ranged call-budget refusals and a 521 ms latency miss against

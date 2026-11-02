@@ -144,3 +144,12 @@ reference envelope; selecting a different explicit policy requires evaluating it
 costs and guarantees. The owner subsequently selected MIT; publication remains
 a separate decision in the
 [readiness assessment](release-readiness.md).
+
+## Later source follow-up
+
+The [0.2.2 seek evaluation](seek-performance-0.2.2.md) preserves these historical
+cohorts and closes the observed large secondary-audio call refusal without
+increasing the 500,000-call allowance. Its fresh fixed-budget cohort passes
+41 of 42 trials and retains a 439.164 ms latency miss. Separate advisory-evicted
+observations expose much longer first-packet delays; this follow-up does not
+turn the reference profile into a general production guarantee.

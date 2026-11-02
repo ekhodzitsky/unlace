@@ -87,3 +87,9 @@ logs, observed A-B-A token changes, changes during I/O, post-read snapshot error
 premature EOF, invalid provider counts, empty inputs, `u64::MAX` endpoints and
 incorrect seek positions. These source tests do not qualify container seeking,
 codec state restoration, network implementations or atomic external snapshots.
+
+Container index parsing may group adjacent required prefix bytes into a bounded
+request. Providers must not assume one-byte reads or fixed request sizes. A
+whole-request availability policy may surface a source error before a malformed
+prefix error; it never permits accepting invalid bytes. See the
+[grouped seek-read contract](seeking.md#grouped-index-reads-in-022).

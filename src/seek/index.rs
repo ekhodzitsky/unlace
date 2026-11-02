@@ -55,6 +55,22 @@ impl Work<'_> {
         Ok(())
     }
 }
+fn read_some<S: ReadAt>(
+    input: &mut RangeReader<S>,
+    offset: u64,
+    buffer: &mut [u8],
+    cancel: &AtomicBool,
+) -> Result<usize, SeekError> {
+    loop {
+        cancelled(cancel)?;
+        match input.read_at(offset, buffer) {
+            Ok(0) => return Err(invalid(offset, "truncated element")),
+            Ok(len) => return Ok(len),
+            Err(SourceError::Io { error, .. }) if error.kind() == io::ErrorKind::Interrupted => (),
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
 fn exact<S: ReadAt>(
     input: &mut RangeReader<S>,
     mut offset: u64,
@@ -62,16 +78,9 @@ fn exact<S: ReadAt>(
     cancel: &AtomicBool,
 ) -> Result<(), SeekError> {
     while !buffer.is_empty() {
-        cancelled(cancel)?;
-        match input.read_at(offset, buffer) {
-            Ok(0) => return Err(invalid(offset, "truncated element")),
-            Ok(len) => {
-                offset += len as u64;
-                buffer = &mut buffer[len..];
-            }
-            Err(SourceError::Io { error, .. }) if error.kind() == io::ErrorKind::Interrupted => (),
-            Err(error) => return Err(error.into()),
-        }
+        let len = read_some(input, offset, buffer, cancel)?;
+        offset += len as u64;
+        buffer = &mut buffer[len..];
     }
     Ok(())
 }
@@ -85,9 +94,11 @@ fn header<S: ReadAt>(
     let mut bytes = [0; 12];
     let mut len = 0;
     loop {
-        let needed =
+        let (needed, minimum) =
             match parse_id(&bytes[..len]).map_err(|_| invalid(offset, "invalid element ID"))? {
-                Parsed::NeedMore { total } => total,
+                // A complete ID always needs at least one size byte. This
+                // groups only a valid header's minimum, never payload bytes.
+                Parsed::NeedMore { total } => (total, total + 1),
                 Parsed::Complete {
                     value: id,
                     consumed,
@@ -99,7 +110,7 @@ fn header<S: ReadAt>(
                             if total > usize::from(size_width) {
                                 return Err(invalid(offset, "declared size width exceeded"));
                             }
-                            consumed + total
+                            (consumed + total, consumed + total)
                         }
                         Parsed::Complete {
                             value: size,
@@ -124,8 +135,13 @@ fn header<S: ReadAt>(
         {
             return Err(invalid(offset, "truncated header/parent boundary"));
         }
-        exact(input, offset + len as u64, &mut bytes[len..needed], cancel)?;
-        len = needed;
+        let requested = minimum.min((bound - offset).min(bytes.len() as u64) as usize);
+        len += read_some(
+            input,
+            offset + len as u64,
+            &mut bytes[len..requested],
+            cancel,
+        )?;
     }
 }
 #[derive(Clone, Copy)]
@@ -596,7 +612,10 @@ fn block_prefix<S: ReadAt>(
         return Err(invalid(block.offset, "short Block"));
     }
     let mut bytes = [0; 11];
-    exact(input, block.data_offset, &mut bytes[..1], cancel)?;
+    // Every valid Block prefix needs at least four bytes. Ask for that
+    // minimum together, then inspect the first byte before requesting more.
+    // Short reads still validate the marker and declared bounds immediately.
+    let read = read_some(input, block.data_offset, &mut bytes[..4], cancel)?;
     if bytes[0] == 0 {
         return Err(invalid(block.offset, "invalid Block track VINT"));
     }
@@ -605,7 +624,12 @@ fn block_prefix<S: ReadAt>(
     if finish - block.data_offset < total as u64 {
         return Err(invalid(block.offset, "short Block prefix"));
     }
-    exact(input, block.data_offset + 1, &mut bytes[1..total], cancel)?;
+    exact(
+        input,
+        block.data_offset + read as u64,
+        &mut bytes[read..total],
+        cancel,
+    )?;
     let mut track = u64::from(bytes[0]) & (0xffu64 >> width);
     for byte in &bytes[1..width] {
         track = track * 256 + u64::from(*byte);
@@ -826,4 +850,178 @@ fn unique<T>(slot: &mut Option<T>, value: T, offset: u64) -> Result<(), SeekErro
         return Err(invalid(offset, "duplicate index singleton"));
     }
     Ok(())
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod grouped_read_tests {
+    use super::*;
+    use std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    };
+    type Requests = Rc<RefCell<Vec<(u64, usize)>>>;
+    use crate::source::{ReadLimits, Snapshot};
+    struct Provider {
+        bytes: Vec<u8>,
+        chunk: usize,
+        calls: Requests,
+        stall: Option<Rc<Cell<bool>>>,
+    }
+    impl ReadAt for Provider {
+        fn snapshot(&mut self) -> io::Result<Snapshot> {
+            Ok(Snapshot {
+                length: self.bytes.len() as u64,
+                revision: 1,
+            })
+        }
+        fn read_at(&mut self, offset: u64, out: &mut [u8]) -> io::Result<usize> {
+            self.calls.borrow_mut().push((offset, out.len()));
+            if out.len() > 1 && self.stall.as_ref().is_some_and(|s| s.get()) {
+                return Err(io::ErrorKind::WouldBlock.into());
+            }
+            let start = offset as usize;
+            let n = out.len().min(self.chunk).min(self.bytes.len() - start);
+            out[..n].copy_from_slice(&self.bytes[start..start + n]);
+            Ok(n)
+        }
+    }
+    fn input(bytes: Vec<u8>, chunk: usize) -> (RangeReader<Provider>, Requests) {
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        (
+            RangeReader::new(
+                Provider {
+                    bytes,
+                    chunk,
+                    calls: calls.clone(),
+                    stall: None,
+                },
+                ReadLimits::default(),
+            )
+            .unwrap(),
+            calls,
+        )
+    }
+    #[test]
+    fn exact_header_offsets_and_no_payload_requests_at_all_widths() {
+        let cancel = AtomicBool::new(false);
+        for id in [
+            &[0xec][..],
+            &[0x4d, 0xbb][..],
+            &[0x2a, 0xd7, 0xb1][..],
+            &[0x1f, 0x43, 0xb6, 0x75][..],
+        ] {
+            for width in 1..=8 {
+                let mut encoded = vec![0; 5];
+                encoded.extend_from_slice(id);
+                let mut size = vec![0; width];
+                size[0] = 1 << (8 - width);
+                size[width - 1] |= 3;
+                encoded.extend(size);
+                let hlen = encoded.len();
+                encoded.extend([0xaa, 0xbb, 0xcc, 0xdd]);
+                for chunk in [1, 2, 3, usize::MAX] {
+                    let (mut source, calls) = input(encoded.clone(), chunk);
+                    let h = header(&mut source, 5, encoded.len() as u64, 8, &cancel).unwrap();
+                    assert_eq!(h.offset, 5);
+                    assert_eq!(h.data_offset, hlen as u64);
+                    assert_eq!(h.size, ElementSize::Known(3));
+                    assert!(
+                        calls
+                            .borrow()
+                            .iter()
+                            .all(|(at, n)| at + *n as u64 <= hlen as u64)
+                    );
+                }
+            }
+        }
+    }
+    #[test]
+    fn truncated_parent_never_requests_beyond_its_boundary() {
+        let cancel = AtomicBool::new(false);
+        let bytes = vec![0x1f, 0x43, 0xb6, 0x75, 0x01, 0, 0, 0, 0, 0, 0, 0, 0xaa];
+        for bound in 0..12u64 {
+            for chunk in [1, 2, usize::MAX] {
+                let (mut source, calls) = input(bytes.clone(), chunk);
+                assert!(matches!(
+                    header(&mut source, 0, bound, 8, &cancel),
+                    Err(SeekError::Invalid { .. })
+                ));
+                assert!(calls.borrow().iter().all(|(at, n)| at + *n as u64 <= bound));
+            }
+        }
+    }
+    #[test]
+    fn successful_short_first_reads_preserve_invalid_marker_priority() {
+        let cancel = AtomicBool::new(false);
+        for first in [0, 0xff, 0x08] {
+            let (mut source, calls) = input(vec![first, 0xff, 0xff, 0xff], 1);
+            assert!(matches!(
+                header(&mut source, 0, 4, 8, &cancel),
+                Err(SeekError::Invalid { .. })
+            ));
+            assert_eq!(calls.borrow().len(), 1);
+        }
+        let Parsed::Complete { value: id, .. } = parse_id(&[0xa3]).unwrap() else {
+            panic!()
+        };
+        let (mut source, calls) = input(vec![0, 0xaa, 0xbb, 0xcc], 1);
+        let h = Header {
+            id,
+            offset: 0,
+            data_offset: 0,
+            size: ElementSize::Known(4),
+        };
+        assert!(matches!(
+            block_prefix(&mut source, h, 4, &cancel),
+            Err(SeekError::Invalid { .. })
+        ));
+        assert_eq!(calls.borrow().len(), 1);
+    }
+
+    #[test]
+    fn whole_request_unavailability_still_rejects_bad_markers_after_retry() {
+        let cancel = AtomicBool::new(false);
+        for block in [false, true] {
+            let stall = Rc::new(Cell::new(true));
+            let calls = Rc::new(RefCell::new(Vec::new()));
+            let mut source = RangeReader::new(
+                Provider {
+                    bytes: vec![0, 0xaa, 0xbb, 0xcc],
+                    chunk: usize::MAX,
+                    calls,
+                    stall: Some(stall.clone()),
+                },
+                ReadLimits::default(),
+            )
+            .unwrap();
+            let Parsed::Complete { value: id, .. } = parse_id(&[0xa3]).unwrap() else {
+                panic!()
+            };
+            let h = Header {
+                id,
+                offset: 0,
+                data_offset: 0,
+                size: ElementSize::Known(4),
+            };
+            let result = if block {
+                block_prefix(&mut source, h, 4, &cancel).map(|_| ())
+            } else {
+                header(&mut source, 0, 4, 8, &cancel).map(|_| ())
+            };
+            match result {
+                Err(SeekError::Invalid { offset: 0, .. }) => (),
+                Err(SeekError::Source(SourceError::NeedRange(_))) => {
+                    stall.set(false);
+                    let result = if block {
+                        block_prefix(&mut source, h, 4, &cancel).map(|_| ())
+                    } else {
+                        header(&mut source, 0, 4, 8, &cancel).map(|_| ())
+                    };
+                    assert!(matches!(result, Err(SeekError::Invalid { offset: 0, .. })));
+                }
+                other => panic!("bad marker accepted or wrong error: {other:?}"),
+            }
+        }
+    }
 }

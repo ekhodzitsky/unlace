@@ -1013,9 +1013,9 @@ fn wide_before_first_cue_scan_reports_read_limit_and_preserves_active_suffix() {
         .unwrap();
     let mut segment = f.bytes[data_offset..f.clusters[0] as usize].to_vec();
     let first_relative = segment.len() as u64;
-    // Five Clusters are the smallest count for this fixture and 50-call
-    // allowance: four complete the fallback scan without a refusal.
-    for i in 0..5 {
+    // Keep this deliberately small allowance exhausted even when necessary
+    // prefix bytes are read together rather than in separate source calls.
+    for i in 0..32 {
         let mut cluster = f.bytes[f.clusters[0] as usize..f.clusters[1] as usize].to_vec();
         change(&mut cluster, 0xe7, 100, i * 100);
         segment.extend(cluster);
@@ -1104,4 +1104,80 @@ fn wide_before_first_cue_scan_reports_read_limit_and_preserves_active_suffix() {
         }
     }
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn no_track_cues_fallback_fits_bounded_reads_for_later_audio_track() {
+    let f = fixture_options(false, None, 1, 32);
+    let data_offset = (f.clusters[0] - f.cue_positions[0]) as usize;
+    let segment_at = f
+        .bytes
+        .windows(4)
+        .position(|b| b == [0x18, 0x53, 0x80, 0x67])
+        .unwrap();
+    let mut segment = f.bytes[data_offset..f.clusters[0] as usize].to_vec();
+    let first_relative = segment.len() as u64;
+    for i in 0..128 {
+        let mut cluster = f.bytes[f.clusters[0] as usize..f.clusters[1] as usize].to_vec();
+        change(&mut cluster, 0xe7, 100, i * 100);
+        segment.extend(cluster);
+    }
+    let mut position = number(0xf7, 1);
+    position.extend(number(0xf1, first_relative));
+    let mut point = number(0xb3, 0);
+    point.extend(element(0xb7, &position));
+    segment.extend(element(0x1c53bb6b, &element(0xbb, &point)));
+    let mut bytes = f.bytes[..segment_at].to_vec();
+    bytes.extend(element(0x18538067, &segment));
+    let cancel = AtomicBool::new(false);
+    let mut reader = SeekReader::new(
+        Ranges::new(bytes),
+        AudioSelection::Number(3),
+        DemuxLimits::default(),
+        SeekLimits {
+            read: unlace::source::ReadLimits {
+                max_calls: 1200,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    prepare(&mut reader, &cancel).unwrap();
+    for (request, first) in [(9_000_000, 89), (0, 0), (12_000_000, 119)] {
+        let result = reader
+            .seek(
+                SeekRequest {
+                    timestamp_ns: request,
+                    preroll_ns: 0,
+                },
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(result.fallback, Some(Fallback::NoTrackCues));
+        assert_eq!(result.actual_timestamp_ns, first * 100_000 - 7);
+        assert!(reader.read_report().calls <= 1200);
+        let mut next = first;
+        loop {
+            match reader.poll(&cancel).unwrap() {
+                SeekEvent::Packet(p) => {
+                    assert_eq!(p.track_number, 3);
+                    assert_eq!(p.data, [99]);
+                    assert_eq!(p.timestamp_ns, Some(next * 100_000 - 7));
+                    assert_eq!((p.lace_index, p.lace_count), (0, 1));
+                    assert_eq!(p.block_discard_padding_ns, 0);
+                    assert_eq!(p.discard_padding_ns, 0);
+                    assert_eq!(p.block_duration_ns, None);
+                    assert_eq!(p.default_duration_ns, Some(20_000));
+                    next += 1;
+                }
+                SeekEvent::Yield => (),
+                SeekEvent::End(end) => {
+                    assert_eq!(end.observed, unlace::demux::Completion::FiniteSegment);
+                    break;
+                }
+            }
+        }
+        assert_eq!(next, 128);
+    }
 }

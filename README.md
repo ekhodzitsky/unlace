@@ -2,11 +2,13 @@
 
 Unlace is a private Rust project for bounded WebM and Matroska container reading
 and writing.
-The **0.2.1 private source milestone** provides allocation-free EBML integers,
+The **0.2.2 private source milestone** provides allocation-free EBML integers,
 bounded sequential audio packets over `Read`, selected-track access and all lacing
 modes, verified seeking, and live/indexed WebM writing from encoded blocks. The compatible
 [reader buffer refactoring](docs/reader-performance.md) retains 8 KiB scratch per
 instance to avoid repeated initialization.
+The [0.2.2 seek qualification](docs/seek-performance-0.2.2.md) measures bounded
+index read grouping with unchanged limits.
 These supported subsets have scoped independent qualification; unlace is not a
 general or production-qualified Matroska reader. The earlier 0.1.0 milestone
 contained only integer parsing. No public crate has been released.
@@ -14,7 +16,9 @@ contained only integer parsing. No public crate has been released.
 **License:** [MIT](LICENSE), selected by the owner.
 
 **Readiness:** publication requires a separate owner decision; general production
-readiness is not established. The [reference pilot](docs/reference-pilot.md) retains failed large ranged criteria. See
+readiness is not established. The historical [reference pilot](docs/reference-pilot.md) retains failed large
+ranged criteria; the [0.2.2 follow-up](docs/seek-performance-0.2.2.md) records the
+optimization and repeated fixed-budget evaluation. See
 the [release and production assessment](docs/release-readiness.md) for passed gates,
 remaining qualification gaps and the narrower experimental path.
 

@@ -65,3 +65,22 @@ and the absence of directory crash-durability evidence are explicit.
 No further confirmed production issue remained from this scoped review. It does
 not replace a consumer's integration, provider/storage failure policy, actual
 acceptance budgets, platform qualification or owner distribution decisions.
+
+## 0.2.2 grouped seek reads
+
+The same authorized reviewer separately inspected the bounded header and Block
+prefix grouping, the unchanged RangeReader/cancellation path and the strengthened
+refusal/admission regressions. Isolated width, truncation and short-read checks
+were reproduced before promotion into ordinary unit tests. Review found no
+malformed-data acceptance, source/cancellation guarantee weakening or limit
+increase. Whole-request availability may precede malformed-marker detection;
+the documented retry test retains eventual rejection. No tracked source files
+were edited by the reviewer. This remains same-session scoped review.
+
+The reviewer also checked 108 measurement values/counts against the 0.2.2 raw
+records, including all reported medians/ranges/misses, allocation controls,
+364 matched trials, 56 large repeated processes and both later reference
+cohorts. The exploratory 1 GiB and fixed 128 MiB address-space allowances remain
+distinct. Review requested advisory-evicted wording where physical cold-cache
+state was not established; the readiness text was corrected. No unsupported
+superiority or large-source competitor admission claim was found.

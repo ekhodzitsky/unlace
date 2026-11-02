@@ -195,3 +195,25 @@ runs/seek-qualification/check runs/demux-qualification/youtube-bbb.webm \
 Raw adapters, sources and JSONL evidence remain local under ignored `runs/`.
 Sustained fuzzing, multi-hour hostile/index coverage, additional platforms,
 matched competitor seeks and performance qualification remain separate work.
+
+## Grouped index reads in 0.2.2
+
+Index preparation and cluster fallback group the minimum bytes needed by a valid
+EBML header, and the first four bytes required by a valid Block prefix. Header
+requests stop within the parent and never include a valid element's payload.
+Successful short reads are inspected before requesting further bytes. Structural,
+track, timestamp, source revision, cancellation and completeness checks remain in
+force. No default, explicit budget or index storage limit increases.
+
+Providers must support bounded multi-byte requests or return partial progress and
+explicit availability errors. Request sizes and the order of source errors versus
+malformed-input errors are not stable API guarantees: a provider requiring the
+whole requested range can report `NeedRange` before an already available invalid
+marker is inspected. Retrying after availability resumes still rejects that marker.
+Call/byte reports describe the actual provider requests, so their counts depend
+on provider short reads and cache boundaries.
+
+There is no new cached cluster-time assumption. A fallback still verifies the
+catalogued clusters on each seek, including repeated or backward requests. The
+[0.2.2 qualification](seek-performance-0.2.2.md) separates reduced logical calls
+from backing-cache traffic and measures first and repeated requests.
