@@ -94,11 +94,12 @@ completeness; see the [writing contract](docs/writing.md).
 
 [The comparison](docs/comparison.md) records further competitors, primary
 sources and the mechanisms evaluated. The pinned
-[0.2.0 performance comparison](docs/performance-0.2.md) reports strict metadata
+[0.2.1 paired performance comparison](docs/performance-0.2.1.md) reports strict metadata
 and separate payload-only jobs, time, RSS, allocations and fresh-handle seek costs.
 It includes common-cache Rust comparisons and retains unfavorable results; it
 establishes no overall speed or compatibility ranking. The
-[historical report](docs/matched-comparison.md) remains available with its exact pins.
+[0.2.0 report](docs/performance-0.2.md) and [historical report](docs/matched-comparison.md)
+remain available with their exact pins.
 
 ## Evidence and limits
 

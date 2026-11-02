@@ -4,6 +4,11 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Record 1,484 paired time/RSS and 324 allocation trials for 0.2.1 against
+  preserved 0.2.0 and pinned readers, including natural speech and large mixed
+  inputs. Retain source/clock gates, cache effects, slower competitor cases,
+  small-input regressions, broad ranges and the 8 KiB memory tradeoff.
+
 ## 0.2.1 - 2026-11-02 (unpublished source milestone)
 
 - Reuse the reader's checked frame ranges and initialized I/O scratch instead of

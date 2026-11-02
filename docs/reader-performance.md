@@ -31,7 +31,7 @@ No new packet can replace that table while an earlier packet remains pending.
 | Complete 6,000-packet profile | Before instructions | After instructions | Before write references | After write references |
 | --- | ---: | ---: | ---: | ---: |
 | Silence | 97,461,234 | 20,887,145 | 78,720,983 | 4,179,127 |
-| Natural speech | 99,193,768 | 22,619,677 | 78,749,768 | 4,207,912 |
+| Natural speech | 99,193,768 | 22,619,679 | 78,749,768 | 4,207,912 |
 
 Callgrind's model expands string operations and simulates caches. These are
 instrumented counts, not hardware cycles, sampled CPU percentages or real-time
@@ -79,7 +79,12 @@ or proof that every path has been exercised.
 
 ## Real-clock comparison
 
-Equivalent-work qualification and repeated measurements are recorded separately
-when complete. The cost-model reductions above must not be advertised as a
-throughput ranking. Public distribution and broader production decisions still
+The [paired real-clock comparison](performance-0.2.1.md) records 1,484 time/RSS
+and 324 separate allocation trials against preserved 0.2.0 and pinned readers.
+Warm strict six-hour median changes from 284.083 to 199.221 ms; natural speech
+from 307.882 to 249.358 ms. Large strict mixed medians differ by only 4.5% with
+wide overlap, and small advisory-evicted cases can regress. Other readers remain
+faster on many jobs. These results retain first-packet latency, I/O, memory and
+allocation costs; they do not turn source-model reductions into a universal
+throughput claim. Public distribution and broader production decisions still
 follow the [readiness assessment](release-readiness.md).

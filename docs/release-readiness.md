@@ -4,7 +4,7 @@ Assessment date: 2026-11-02. Current version: **0.2.1, private and unpublished**
 The original implementation audit covers `0c4f9ce`; the compatible 0.2.1
 [reader refactoring](reader-performance.md) adds pinned profiles, repeated corpus
 checks and a separate second-agent review. The [source audit](source-audit.md) and
-[current measurements](performance-0.2.md) provide evidence for this assessment.
+[current measurements](performance-0.2.1.md) provide evidence for this assessment.
 
 **Public release: not ready now. Production: no general production approval.**
 The completed original implementation scope and a passing test suite are not
@@ -41,7 +41,7 @@ for unrestricted production use. No license choice is made in this change.
 | Writing | Exact current output hashes, independent readers, generated modes/laces/multiple tracks, every-byte writes, finalization seeks/flush faults, bounded packing and staged publication. | Generic Write + Seek cannot retract externally visible bytes after a failed final flush. Applications must honor receipt/staging/durability duties. |
 | Seeking | Actual structural boundary/cue/track/time checks and reported starts/preroll/fallback; suffix and source identity checks. | No decoder restoration guarantee. Default before-first-cue budget refuses the six-hour source; explicit larger qualification budget is not a changed default. |
 | Resources | Explicit metadata/block/index/depth and per-operation budgets, fallible storage, no lifetime media/result retention in the reader/live writer. | Provider latency, honest immutable revisions, external buffering, allocator internals and application result retention remain consumer contracts. |
-| Performance | 952 time/RSS and 210 allocation trials, full strict/payload gates and common-cache checks; low long-file allocation counts. | One host and controlled fixtures, uncontrolled desktop/frequency effects, no application-specific throughput/latency/memory acceptance target. Lower allocation count is not faster iteration. |
+| Performance | 1,484 paired time/RSS and 324 allocation trials, strict/payload gates and common-cache/natural/large checks. Warm strict six-hour median is 29.9% lower than preserved 0.2.0. | Other readers remain faster on many jobs; small cold cases can regress and large strict ranges overlap. One host, uncontrolled desktop/frequency effects and no application-specific acceptance target. The reader retains 8 KiB extra instance storage. |
 | Interoperability | Pinned independent reader and scoped decoder agreement, current packet/writer replay after fixes. | Explicit CRC/transformation/metadata subset; zero-default Opus/browser interpretation and ordinary FFmpeg laced-padding playback disagreement remain visible. |
 
 A small supported format subset can be production-appropriate for a defined
