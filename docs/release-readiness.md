@@ -19,7 +19,7 @@ visibility changes, public tags, release uploads or hosted workflows.
 
 | Gate | Current evidence | Disposition |
 | --- | --- | --- |
-| Distribution license | No owner-selected license, license file or Cargo license metadata. Cargo package warns about the missing field. | Blocking owner decision under the repository policy; do not invent a grant. |
+| Distribution license | Owner selected MIT; LICENSE contains its terms and Cargo metadata declares MIT. | Licensing gate resolved. Publication remains a separate owner action. |
 | Publication authorization | Repository remains private, Cargo publish=false, no public release/tag authorized. | Separate owner action required before distribution. Asking whether it is ready does not authorize publication. |
 | Coherent source/API version | Cargo.toml/lock both 0.2.1; changelog and migration notes include accumulated reader/writer incompatibilities. | Passed for a private source milestone. Pre-1.0 status itself is not a reason a clearly experimental alpha could never be released. |
 | Package construction | Local offline locked packaging compiles from the generated package. Package-list audit excludes raw runs, Backlog, credentials, target and machine state. | Passed locally; a successful package is not a license or production qualification. |
@@ -27,11 +27,12 @@ visibility changes, public tags, release uploads or hosted workflows.
 | Compatibility and support commitment | Migration notes exist; no stable 1.x, supported-platform matrix or production support/security-response commitment has been established. | Define the intended alpha scope and owner contact/support process before making broader public promises. |
 | Public claims | Pinned equivalent-work reports with absolute metrics/ranges and unfavorable cases. | No universal speed, full Matroska conformance or production claim is justified. |
 
-After the owner resolves licensing, publication authorization and the intended
-experimental support/communication scope, local build/package evidence can
-support evaluating an explicitly experimental release. That conditional path
+MIT resolves the licensing gate. After the owner authorizes publication and
+defines the intended experimental support/communication scope, local build/package
+evidence can support evaluating an explicitly experimental release. That conditional path
 is different from declaring the current repository publicly released or ready
-for unrestricted production use. No license choice is made in this change.
+for unrestricted production use. No crate or repository publication follows from
+the license choice.
 
 ## Production qualification
 
@@ -60,8 +61,9 @@ promises, and their failed cases remain unresolved within that envelope.
 
 ## Priorities before a stronger readiness claim
 
-1. Owner resolves the distribution license and the intended public experimental
-   support/security-reporting process; publication still needs explicit approval.
+1. Define the intended public experimental support/security-reporting process
+   and obtain explicit publication approval. The owner-selected MIT license is
+   already recorded.
 2. Choose the actual production consumer/input/platform/provider and acceptance
    budgets. Resolve the observed large ranged-call refusal and first-latency miss
    for that workload without silently raising limits. Exercise actual cache
@@ -80,4 +82,5 @@ promises, and their failed cases remain unresolved within that envelope.
 These are readiness gaps and owner decisions, not claims that every item has been
 completed or extra work silently included in this audit. Existing source changes,
 measurements, version alignment and the readiness assessment are complete within
-the requested scope. No release, license grant or external service change follows.
+the requested scope. The owner-selected MIT grant is recorded; no release,
+repository visibility or external service change follows.

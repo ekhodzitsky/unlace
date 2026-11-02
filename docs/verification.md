@@ -237,3 +237,9 @@ and local supervisor gaps. The [reference pilot](reference-pilot.md) is a comple
 evaluation with failed large ranged criteria, not a blanket pass or application
 rollout. Its digest subset, window-only scope, fixed budgets, retrospective
 wrapper pins and staged-file durability boundaries remain explicit.
+
+
+The owner subsequently selected MIT. LICENSE and Cargo metadata now record that
+choice; the earlier missing-license observations above are historical. Local
+packaging checks the included notice and metadata. Publication and production
+acceptance remain separate decisions.

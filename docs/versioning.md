@@ -16,5 +16,6 @@ deliberate owner decision. A source version does not establish production readin
 
 English Conventional Commit messages describe the delivered change. Backlog
 identifiers, raw research, private operational data and generated output stay
-out of commits even while the remote is private. A distribution license must
-be selected by the owner before publication; no license grant is invented here.
+out of commits even while the remote is private. The owner selected the MIT
+license, recorded in LICENSE and Cargo metadata.
+That license choice does not authorize repository or package publication.

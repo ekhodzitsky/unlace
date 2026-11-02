@@ -141,5 +141,6 @@ The pilot is a completed evaluation with failed criteria, not a production
 rollout or blanket pass. The owner still needs an actual input/provider/platform
 profile and acceptance budgets. The observed large ranged cases fail the chosen
 reference envelope; selecting a different explicit policy requires evaluating its
-costs and guarantees. Public license/publication decisions remain separate in the
+costs and guarantees. The owner subsequently selected MIT; publication remains
+a separate decision in the
 [readiness assessment](release-readiness.md).

@@ -4,6 +4,10 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Adopt the owner-selected MIT license, include its notice in source packages
+  and resolve the licensing readiness gate. Publication remains disabled; API
+  and source milestone versions are unchanged.
+
 - Record the authorized second-agent review and bounded library-reference pilot.
   Preserve large ranged call-budget refusals and a 521 ms latency miss against
   the fixed 250 ms criterion. Document staged-output controls, corrected local

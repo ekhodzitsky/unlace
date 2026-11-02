@@ -11,9 +11,10 @@ These supported subsets have scoped independent qualification; unlace is not a
 general or production-qualified Matroska reader. The earlier 0.1.0 milestone
 contained only integer parsing. No public crate has been released.
 
-**Readiness:** public release is blocked by the missing owner-selected license
-and publication decision; general production readiness is not established. The
-[reference pilot](docs/reference-pilot.md) retains failed large ranged criteria. See
+**License:** [MIT](LICENSE), selected by the owner.
+
+**Readiness:** publication requires a separate owner decision; general production
+readiness is not established. The [reference pilot](docs/reference-pilot.md) retains failed large ranged criteria. See
 the [release and production assessment](docs/release-readiness.md) for passed gates,
 remaining qualification gaps and the narrower experimental path.
 
@@ -140,8 +141,8 @@ source, tests and scoped evidence, including the additional
 [implementation studies](docs/implementation-studies.md) and
 [speech corpus](docs/speech-qualification.md).
 The repository is private, package publication is disabled, hosted Actions are
-disabled and no release artifact is published. A distribution license has not
-been selected. Downloads, docs.rs and CI badges therefore do not apply; ordinary
+disabled and no release artifact is published. Downloads, docs.rs and CI badges
+therefore do not apply; ordinary
 test-suite branch coverage and general performance superiority remain unproven.
 
 ## Development

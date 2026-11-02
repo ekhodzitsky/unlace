@@ -4,6 +4,7 @@ version = "0.2.1"
 edition = "2024"
 rust-version = "1.89"
 description = "Bounded streaming WebM and Matroska containers in pure Rust (early development)"
+license = "MIT"
 publish = false
 repository = "https://github.com/ekhodzitsky/unlace"
 readme = "README.md"
