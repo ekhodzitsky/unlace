@@ -4,6 +4,27 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+## 0.2.4 - 2026-11-02 (unpublished source milestone)
+
+- Add PreparedSource and exclusive SeekSession APIs retaining the original
+  provider and existing verified seek state across consumer openings. Atomically
+  seek before returning a session; preserve cancellation, revision/fatal latches
+  and full suffix fidelity. No index import, provider replacement, disk storage
+  or process-restart persistence is introduced.
+- Make full fallback preparation explicit and stronger than ordinary catalogue
+  readiness. Yield between phases to preserve one configured read operation per
+  call; refuse incomplete warmup rather than publishing partial readiness.
+  Add lifecycle, equal-snapshot isolation, budget and compile-fail regressions,
+  an executable example and prepared-session fuzz trace comparisons.
+- Qualify 112 previously unconsumed prepared windows within the fixed 250 ms
+  reference criterion, including advisory-evicted data/provider-cache resets.
+  Retain all fourteen advisory-evicted prepared first-from-construction misses
+  and the full setup cost. Already-retained 0.2.3 readers perform similarly;
+  this is an ownership/lifecycle API, not a new parser-speed claim.
+- Record 84 reference processes, 252 windows, a separate 364-trial ordinary-reader
+  competitor refresh and allocation/storage tradeoffs. No actual consumer rollout,
+  new-file latency guarantee, public release or general production approval follows.
+
 ## 0.2.3 - 2026-11-02 (unpublished source milestone)
 
 - Reuse complete verified selected-track fallback summaries after a successful

@@ -2,14 +2,15 @@
 
 Unlace is a private Rust project for bounded WebM and Matroska container reading
 and writing.
-The **0.2.3 private source milestone** provides allocation-free EBML integers,
+The **0.2.4 private source milestone** provides allocation-free EBML integers,
 bounded sequential audio packets over `Read`, selected-track access and all lacing
 modes, verified seeking, and live/indexed WebM writing from encoded blocks. The compatible
 [reader buffer refactoring](docs/reader-performance.md) retains 8 KiB scratch per
 instance to avoid repeated initialization.
-The [0.2.3 seek qualification](docs/seek-cache-0.2.3.md) measures bounded reuse
-of verified fallback summaries, including its catalogue memory cost and unchanged
-first-use limits.
+The [0.2.4 prepared-source qualification](docs/prepared-sessions-0.2.4.md) adds
+source-bound exclusive consumer sessions over retained verification. The original
+provider remains alive; this is in-process reuse with explicit preparation cost.
+The [0.2.3 report](docs/seek-cache-0.2.3.md) records the underlying cache tradeoff.
 These supported subsets have scoped independent qualification; unlace is not a
 general or production-qualified Matroska reader. The earlier 0.1.0 milestone
 contained only integer parsing. No public crate has been released.
@@ -18,8 +19,9 @@ contained only integer parsing. No public crate has been released.
 
 **Readiness:** publication requires a separate owner decision; general production
 readiness is not established. The historical [reference pilot](docs/reference-pilot.md) retains failed large
-ranged criteria; the [0.2.3 follow-up](docs/seek-cache-0.2.3.md) records repeat
-lookup gains and remaining first-use latency failures. The
+ranged criteria. The [0.2.4 follow-up](docs/prepared-sessions-0.2.4.md) qualifies
+previously unconsumed windows on prepared sources while retaining unknown-file
+first-use failures. The
 [experimental scope](docs/experimental-scope.md) states compatibility and reporting
 policy, including the public contact prerequisite. See
 the [release and production assessment](docs/release-readiness.md) for passed gates,
@@ -80,6 +82,19 @@ reads for immutable files and externally cached ranges. It reports unavailable
 byte extents, actual read work and observed source replacement. This input layer
 supports the separate [seek reader](docs/seeking.md), which validates index
 destinations and reports actual starts, preroll, fallback and suffix completion.
+
+For sequential consumer sessions on one retained original provider:
+
+```sh
+cargo run --offline --locked --example prepared_audio -- INPUT.webm 1 0 500000000 0
+```
+
+`seek::PreparedSource` completes metadata/catalogue and full fallback preparation
+before `open` returns an exclusive positioned `SeekSession`. Sessions retain
+source checks and packet fidelity. Preparation can refuse default limits on large
+files; it is separately reported and never hidden from first-use cost. The source
+handle stays owned between sessions. No disk index, independent-provider import
+or restart persistence is provided. See the [prepared contract](docs/seeking.md#prepared-source-sessions-in-024).
 
 For selected-audio writing, with no codec encoding:
 

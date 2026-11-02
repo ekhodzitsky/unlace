@@ -3,6 +3,8 @@
 //! Seeking attests element boundaries and selected-track access points, not
 //! decoder state or the validity/completeness of skipped media.
 mod index;
+mod prepared;
+pub use prepared::{PreparedSource, SeekSession};
 
 use crate::demux::{
     AudioSelection, Completion, DemuxError, DemuxEvent, DemuxLimits, Demuxer, Packet, SegmentInfo,

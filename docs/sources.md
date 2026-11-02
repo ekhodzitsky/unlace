@@ -93,3 +93,12 @@ request. Providers must not assume one-byte reads or fixed request sizes. A
 whole-request availability policy may surface a source error before a malformed
 prefix error; it never permits accepting invalid bytes. See the
 [grouped seek-read contract](seeking.md#grouped-index-reads-in-022).
+
+
+Snapshot values are assertions within a provider's identity contract, not global
+file identifiers. Independent providers can expose equal length/revision tuples.
+The [prepared-session owner](seeking.md#prepared-source-sessions-in-024) therefore
+retains the original provider and never imports verification into a new one.
+Physical path replacement or process restart does not identify a reusable owner;
+applications must select the correct owned source generation. Snapshot checks
+still depend on honest, immutable, non-reused revisions.

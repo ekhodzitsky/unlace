@@ -105,3 +105,22 @@ address-space caps agree with raw records. The report explicitly limits repeat
 timings to the same previously read packet window, retaining first-use failures,
 chosen-cue-only memory overhead and the absence of network/cold-destination
 latency qualification.
+
+
+## 0.2.4 source-bound prepared sessions
+
+The same authorized reviewer inspected original-provider ownership, exclusive
+session lifetimes, atomic positioned openings, one-operation preparation phases
+and persistent source/fatal latches. Three isolated mutants are detected: a
+hidden catalogue-to-warmup reset, skipped full warmup and readiness committed
+before a failed warmup. Additional edge checks cover maximum preroll/delay,
+negative timestamps, interrupted short reads, range holes and Ready faults.
+No production defect or required correction remained from this review.
+
+The final report passed 184 automated numeric/table/count/layout/source-pin
+checks. It preserves 112/112 prepared query successes alongside fourteen initial-
+opening misses, distinguishes the existing retained-reader baseline, includes
+preparation/conditioning wall cost correctly and separates 128 MiB reference
+from 1 GiB fresh-matrix caps. It explicitly limits reuse to the original live
+provider, without disk persistence, independent file reopening or general
+production/network latency approval. No tracked files were edited by the reviewer.

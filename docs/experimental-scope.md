@@ -54,3 +54,12 @@ opening or first fallback latency. The reference 250 ms criterion and its failed
 observations remain visible in the [readiness assessment](release-readiness.md).
 A consumer must qualify its actual workload and failure policy. Neither MIT nor
 a successful package construction substitutes for that evaluation.
+
+
+Prepared-session qualification is limited to a continuously owned immutable
+provider, explicit complete preparation, fixed selection and exclusive consumers.
+It is an in-process lifecycle, not disk-persistent verification or independent
+file reopening. The [0.2.4 reference evaluation](prepared-sessions-0.2.4.md) passes
+its measured prepared-opening criterion on varied windows after advisory cache
+resets; first-new-source cost remains seconds. A consumer pilot must explicitly
+adopt this preparation/lifetime policy and qualify its own provider and workload.

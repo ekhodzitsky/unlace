@@ -246,3 +246,40 @@ read work are unchanged. The [0.2.3 report](seek-cache-0.2.3.md) retains memory,
 first-use timing and failed criteria alongside reuse measurements. The earlier
 0.2.2 profile above is historical; its every-seek re-scan description no longer
 applies once a 0.2.3 fallback cache is committed.
+
+
+## Prepared-source sessions in 0.2.4
+
+`PreparedSource<S>` owns the original provider and ordinary reader state. Call
+`prepare` until Ready: metadata/catalogue readiness always yields before a
+separate complete selected-track fallback warmup operation. This preserves one
+configured read budget per public call and makes all preparation cost visible.
+Ready is stronger than `SeekReader::prepare`; it can return full-scan limits,
+NoAccessPoint or prefix errors even when metadata-only preparation succeeds.
+Chosen-cue-only sources also pay for the full warmup. No partial fallback cache
+becomes usable after failed preparation.
+
+`open(request, cancel)` returns an exclusive positioned `SeekSession` only after
+successful seek and final source/cancellation checks. `start()` exposes the
+actual access point/preroll, while metadata/read-report/poll methods retain the
+ordinary reader's contracts. A failed opening returns no session and cannot
+expose the previous consumer's pending laces. Session Drop performs no I/O and
+never resets fatal or source-change latches. Compile-fail doctests enforce
+exclusive borrowing and consuming source recovery. There is no shared cursor
+or implicit concurrent-consumer support.
+
+The original source handle remains alive. Equal snapshot tuples from independent
+providers never attach another source to this verification. The API supplies no
+serialized index, new-provider import, physical file reopening or process-restart
+persistence. Provider honesty/immutable revisions remain required; ownership is
+provenance within that contract, not cryptographic authentication. Application
+registries own source-generation selection, instance counts and eviction policy.
+`into_inner` consumes the owner and discards all verification.
+
+The complete [example](../examples/prepared_audio.rs) reports preparation and
+individual openings separately with unchanged default limits. The
+[0.2.4 evaluation](prepared-sessions-0.2.4.md) compares fresh and already-retained
+0.2.3 readers, varied previously unconsumed windows, advisory cache resets,
+source identity/failure controls and the unknown-file first-use cost. A prepared
+profile must explicitly adopt preparation outside its request deadline; the
+original 250 ms new-file observations still fail and remain visible.

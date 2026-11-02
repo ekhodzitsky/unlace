@@ -1436,3 +1436,305 @@ fn fallback_summary_cache_never_substitutes_for_chosen_cue_attestation() {
         ));
     }
 }
+
+fn prepare_source<S: ReadAt>(source: &mut unlace::seek::PreparedSource<S>, cancel: &AtomicBool) {
+    for _ in 0..100_000 {
+        if source.prepare(cancel).unwrap() == Preparation::Ready {
+            return;
+        }
+    }
+    panic!("prepared source did not become ready")
+}
+
+#[test]
+fn prepared_sessions_keep_original_providers_separate_and_match_full_suffixes() {
+    use unlace::seek::PreparedSource;
+    let cancel = AtomicBool::new(false);
+    for unknown in [false, true] {
+        let first = fixture_options(unknown, None, 1, 32);
+        let mut second = first.bytes.clone();
+        let bytes = block(2, 0, 0x80, &[1, 10]);
+        let at = second
+            .windows(bytes.len())
+            .position(|b| b == bytes)
+            .unwrap();
+        second[at + bytes.len() - 2] = 77;
+        let codec = second.windows(6).position(|b| b == b"A_TEST").unwrap();
+        second[codec + 5] = b'U';
+        let expected = [sequential(&first.bytes), sequential(&second)];
+        let sources = [Ranges::new(first.bytes), Ranges::new(second)];
+        assert_eq!(
+            sources[0].clone().snapshot().unwrap(),
+            sources[1].clone().snapshot().unwrap()
+        );
+        let mut owners = sources.clone().map(|s| {
+            PreparedSource::new(
+                s,
+                AudioSelection::Number(2),
+                DemuxLimits::default(),
+                SeekLimits::default(),
+            )
+            .unwrap()
+        });
+        for source in &mut owners {
+            prepare_source(source, &cancel);
+        }
+        assert_eq!(
+            owners[0]
+                .tracks()
+                .iter()
+                .find(|t| t.number == 2)
+                .unwrap()
+                .codec_id,
+            "A_TEST"
+        );
+        assert_eq!(
+            owners[1]
+                .tracks()
+                .iter()
+                .find(|t| t.number == 2)
+                .unwrap()
+                .codec_id,
+            "A_TESU"
+        );
+        for (timestamp_ns, index) in [(350_000, 2), (0, 0), (280_000, 1), (0, 0)] {
+            for (n, owner) in owners.iter_mut().enumerate() {
+                let calls = sources[n].0.borrow().calls;
+                let mut session = owner
+                    .open(
+                        SeekRequest {
+                            timestamp_ns,
+                            preroll_ns: 0,
+                        },
+                        &cancel,
+                    )
+                    .unwrap();
+                assert_eq!(sources[n].0.borrow().calls, calls);
+                assert_eq!(session.read_report().calls, 0);
+                let mut actual = Vec::new();
+                loop {
+                    match session.poll(&cancel).unwrap() {
+                        SeekEvent::Packet(p) => actual.push(packet(p)),
+                        SeekEvent::Yield => (),
+                        SeekEvent::End(end) => {
+                            assert_eq!(end.from_cluster_offset, first.clusters[index]);
+                            break;
+                        }
+                    }
+                }
+                assert_eq!(
+                    actual,
+                    expected[n]
+                        .iter()
+                        .filter(|p| p.offset >= first.clusters[index])
+                        .cloned()
+                        .collect::<Vec<_>>()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn prepared_sessions_refuse_failed_open_and_keep_revision_latches() {
+    use unlace::seek::PreparedSource;
+    let f = fixture_options(false, None, 1, 32);
+    let source = Ranges::new(f.bytes);
+    let cancel = source.0.borrow().cancel.clone();
+    let mut owner = PreparedSource::new(
+        source.clone(),
+        AudioSelection::Number(2),
+        DemuxLimits::default(),
+        SeekLimits::default(),
+    )
+    .unwrap();
+    let request = SeekRequest {
+        timestamp_ns: 0,
+        preroll_ns: 0,
+    };
+    assert!(matches!(
+        owner.open(request, &cancel),
+        Err(SeekError::Configuration)
+    ));
+    prepare_source(&mut owner, &cancel);
+    {
+        let mut session = owner.open(request, &cancel).unwrap();
+        let mut packets = 0;
+        loop {
+            if let SeekEvent::Packet(p) = session.poll(&cancel).unwrap() {
+                packets += 1;
+                if packets == 2 {
+                    assert_eq!((p.lace_index, p.lace_count), (0, 2));
+                    break;
+                }
+            }
+        }
+    }
+    cancel.store(true, Ordering::Relaxed);
+    assert!(matches!(
+        owner.open(request, &cancel),
+        Err(SeekError::Cancelled)
+    ));
+    cancel.store(false, Ordering::Relaxed);
+    {
+        let mut session = owner
+            .open(
+                SeekRequest {
+                    timestamp_ns: 350_000,
+                    preroll_ns: 0,
+                },
+                &cancel,
+            )
+            .unwrap();
+        loop {
+            if let SeekEvent::Packet(p) = session.poll(&cancel).unwrap() {
+                assert_eq!(p.data, [3, 10]);
+                break;
+            }
+        }
+    }
+    source.0.borrow_mut().revision += 1;
+    assert!(matches!(
+        owner.open(request, &cancel),
+        Err(SeekError::Source(SourceError::SourceChanged))
+    ));
+    source.0.borrow_mut().revision = 1;
+    assert!(matches!(
+        owner.open(request, &cancel),
+        Err(SeekError::Source(SourceError::SourceChanged))
+    ));
+    let recovered = owner.into_inner();
+    assert!(Rc::ptr_eq(&recovered.0, &source.0));
+}
+
+#[test]
+fn prepared_source_reports_every_call_without_hidden_budget_resets() {
+    use unlace::seek::PreparedSource;
+    let f = fixture_options(false, None, 1, 32);
+    let source = Ranges::new(f.bytes);
+    let cancel = AtomicBool::new(false);
+    let mut owner = PreparedSource::new(
+        source.clone(),
+        AudioSelection::Number(2),
+        DemuxLimits::default(),
+        SeekLimits {
+            read: unlace::source::ReadLimits {
+                max_calls: 50,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let mut ready = false;
+    for _ in 0..200 {
+        let before = source.0.borrow().calls;
+        let result = owner.prepare(&cancel);
+        let calls = source.0.borrow().calls - before;
+        assert_eq!(owner.read_report().calls, calls);
+        assert!(calls <= 50);
+        match result {
+            Ok(Preparation::Ready) => {
+                ready = true;
+                break;
+            }
+            Ok(Preparation::Yield) | Err(SeekError::Source(SourceError::Limit)) => (),
+            other => panic!("unexpected preparation result: {other:?}"),
+        }
+    }
+    assert!(ready);
+}
+
+#[test]
+fn prepared_source_turnover_preserves_snapshot_errors_and_fatal_cue_latches() {
+    use unlace::seek::PreparedSource;
+    let mut f = fixture_options(false, Some(2), 1, 32);
+    change(&mut f.bytes, 0xf0, f.relative, f.relative + 1);
+    let source = Ranges::new(f.bytes);
+    let cancel = AtomicBool::new(false);
+    let mut owner = PreparedSource::new(
+        source.clone(),
+        AudioSelection::Number(2),
+        DemuxLimits::default(),
+        SeekLimits::default(),
+    )
+    .unwrap();
+    prepare_source(&mut owner, &cancel);
+    let before_first = SeekRequest {
+        timestamp_ns: 0,
+        preroll_ns: 0,
+    };
+    let calls = source.0.borrow().calls;
+    {
+        let session = owner.open(before_first, &cancel).unwrap();
+        assert_eq!(session.start().fallback, Some(Fallback::BeforeFirstCue));
+    }
+    assert_eq!(source.0.borrow().calls, calls, "session Drop performed I/O");
+    let at = source.0.borrow().snapshots + 1;
+    source.0.borrow_mut().fault_snapshot_at = Some(at);
+    assert!(matches!(
+        owner.open(before_first, &cancel),
+        Err(SeekError::Source(SourceError::Io { .. }))
+    ));
+    source.0.borrow_mut().fault_snapshot_at = None;
+    {
+        let _session = owner.open(before_first, &cancel).unwrap();
+    }
+    assert!(matches!(
+        owner.open(
+            SeekRequest {
+                timestamp_ns: 180_000,
+                preroll_ns: 0
+            },
+            &cancel
+        ),
+        Err(SeekError::Invalid { .. })
+    ));
+    assert!(matches!(
+        owner.open(before_first, &cancel),
+        Err(SeekError::Failed)
+    ));
+    assert!(matches!(owner.prepare(&cancel), Err(SeekError::Failed)));
+}
+
+#[test]
+fn prepared_source_full_scan_refusal_never_opens_a_session() {
+    use unlace::seek::PreparedSource;
+    let source = Ranges::new(fixture_options(false, None, 1, 32).bytes);
+    let cancel = AtomicBool::new(false);
+    let mut owner = PreparedSource::new(
+        source.clone(),
+        AudioSelection::Number(2),
+        DemuxLimits::default(),
+        SeekLimits {
+            max_scan_headers: 5,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let mut refusals = 0;
+    for _ in 0..1000 {
+        match owner.prepare(&cancel) {
+            Ok(Preparation::Yield) => (),
+            Err(SeekError::Limit("scan headers")) => {
+                refusals += 1;
+                assert!(owner.read_report().calls > 0);
+                assert!(matches!(
+                    owner.open(
+                        SeekRequest {
+                            timestamp_ns: 350_000,
+                            preroll_ns: 0
+                        },
+                        &cancel
+                    ),
+                    Err(SeekError::Configuration)
+                ));
+                if refusals == 16 {
+                    break;
+                }
+            }
+            other => panic!("unexpected bounded preparation result: {other:?}"),
+        }
+    }
+    assert_eq!(refusals, 16);
+}

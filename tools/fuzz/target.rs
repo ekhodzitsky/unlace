@@ -289,6 +289,66 @@ fn seek<S: ReadAt>(source: S, request: i128) -> (Vec<u8>, String) {
     }
     (trace, "done".into())
 }
+fn prepared<S: ReadAt>(source: S, request: i128) -> (Vec<u8>, String) {
+    let mut owner =
+        PreparedSource::new(source, AudioSelection::First, demux_limits(), seek_limits()).unwrap();
+    let cancel = AtomicBool::new(false);
+    let mut trace = Vec::new();
+    let mut ready = false;
+    for _ in 0..5000 {
+        match owner.prepare(&cancel) {
+            Ok(Preparation::Ready) => {
+                ready = true;
+                break;
+            }
+            Ok(Preparation::Yield) | Err(SeekError::Source(SourceError::NeedRange(_))) => (),
+            Err(e) => return (trace, format!("{e:?}")),
+        }
+    }
+    assert!(ready, "prepared owner did not terminate");
+    'requests: for time in [0, request, 0] {
+        let mut opened = false;
+        for _ in 0..5000 {
+            let mut session = match owner.open(
+                SeekRequest {
+                    timestamp_ns: time,
+                    preroll_ns: 0,
+                },
+                &cancel,
+            ) {
+                Ok(session) => session,
+                Err(SeekError::Source(SourceError::NeedRange(_))) => continue,
+                Err(SeekError::RequestOverflow) => {
+                    trace.extend(b"request_overflow");
+                    continue 'requests;
+                }
+                Err(e) => return (trace, format!("{e:?}")),
+            };
+            trace.extend(format!("{:?}", session.start()).bytes());
+            let mut ended = false;
+            for _ in 0..100_000 {
+                match session.poll(&cancel) {
+                    Ok(SeekEvent::Packet(p)) => packet(&mut trace, p),
+                    Ok(SeekEvent::Yield) => (),
+                    Ok(SeekEvent::End(end)) => {
+                        trace.extend(format!("{end:?}").bytes());
+                        ended = true;
+                        break;
+                    }
+                    Err(SeekError::Source(SourceError::NeedRange(_))) => (),
+                    Err(e) => return (trace, format!("{e:?}")),
+                }
+                assert!(trace.len() < 64 * 1024 * 1024);
+            }
+            assert!(ended, "prepared session suffix did not end");
+            opened = true;
+            break;
+        }
+        assert!(opened, "prepared session opening did not terminate");
+    }
+    (trace, "done".into())
+}
+
 fn scalars(bytes: &[u8]) {
     for prefix in [bytes, &bytes[..bytes.len().min(12)]] {
         let _ = unlace::parse_id(prefix);
@@ -422,16 +482,23 @@ fn main() {
             let mut timestamp = [0; 16];
             timestamp.copy_from_slice(&data[..16]);
             let data = &data[16..];
+            let request = i128::from_le_bytes(timestamp);
+            let direct = seek(SeekSource::new(Cursor::new(data), 1), request);
             assert!(
-                seek(
-                    SeekSource::new(Cursor::new(data), 1),
-                    i128::from_le_bytes(timestamp)
-                ) == seek(
-                    Ranges { inner: chunk(data) },
-                    i128::from_le_bytes(timestamp)
-                ),
+                direct == seek(Ranges { inner: chunk(data) }, request),
                 "seek trace mismatch"
             );
+            let retained = prepared(SeekSource::new(Cursor::new(data), 1), request);
+            assert!(
+                retained == prepared(Ranges { inner: chunk(data) }, request),
+                "prepared session trace mismatch"
+            );
+            if direct.1 == "done" && retained.1 == "done" {
+                assert!(
+                    direct == retained,
+                    "prepared/direct successful suffix mismatch"
+                );
+            }
         }
         _ => sources(data),
     }

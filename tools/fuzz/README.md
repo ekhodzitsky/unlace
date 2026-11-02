@@ -36,7 +36,7 @@ For `reader-v1`, the first byte selects a mode modulo five:
 | 0 | VINT, Block/SimpleBlock and OpusHead parsing; frame bounds, exact repeated frame views |
 | 1 | Synthetic hierarchy; equal normalized events, offsets and terminal results over whole vs short/interrupted/paused input |
 | 2 | Audio demux; equal tracks, packet bytes/fields, offsets and final results over both input schedules |
-| 3 | Signed little-endian i128 request followed by a container; prepare, seek forward/backward, compare actual results and full suffixes over positional sources |
+| 3 | Signed little-endian i128 request followed by a container; ordinary seek and prepared-source sessions forward/backward, compare each lifecycle over positional schedules and successful complete traces between lifecycles |
 | 4 | Pairs of source-control bytes; revision changes, repeated checks/budget resets, short reads, WouldBlock/Interrupted/I/O and replacement during a read |
 
 Mode 3 uses its first 16 payload bytes as an independent request, so changing a
@@ -44,6 +44,10 @@ seek time need not damage the container header. Sources preserve immutable token
 within their contract, and observed source changes must stay latched. Valid Opus
 initialization seeds use invented packet bytes; no decoding is claimed. Dense
 empty-lace seeds exercise large legal packet counts within small input bounds.
+Prepared-source mode requires its stronger full-fallback preparation. Error
+phases are compared between its input schedules, not required to match ordinary
+metadata-only preparation. When both lifecycles complete, exact successful traces
+must agree across dropped/reopened sessions.
 Assertions and unwraps belong to a `cfg(test)` fuzz executable, compiled with
 `--cfg test`; production library assertions/recovery behavior are not added.
 
