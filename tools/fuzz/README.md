@@ -93,6 +93,13 @@ python3 tools/fuzz/report.py runs/writer-fuzz-example \
 ```
 
 Every input runs live and indexed writers with clean and injected-fault sinks.
+It also derives a separate guaranteed-valid three-block sequence and requires
+both writer modes to finish with exactly the predetermined block/packet counts.
+This acceptance lane varies lacing, signed padding, short writes, flush and packing
+without deriving its expected success from returned Ok values. Successful finish
+must set Finished. Typed I/O/position/I/O-budget failures must set Failed; invalid
+or unsupported preflight errors must retain Writing. Terminal state errors must
+report the actual state.
 The target compares successful output against caller records, including exact
 bytes, timestamps, lacing, flags, signed whole-block/once-only padding and track
 metadata. Receipt counts, end offset and finite/live completion must agree.
@@ -159,3 +166,18 @@ clean/fault names using create_new. The directory must resolve to a child of
 ignored project `runs/`; existing files are refused. Campaigns never pass this
 flag or export every mutation. See [writer qualification](../../docs/writer-fuzzing.md)
 for executed campaigns, control mutations and coverage gaps.
+
+
+Check the writer oracles themselves without LLVM tools:
+
+```sh
+python3 tools/fuzz/check_oracles.py --out runs/writer-oracle-controls
+```
+
+This optional Linux check compiles isolated copies of the current source with
+Rust 1.89.0. Clean output must pass; seven intentional mutants must each cause a target assertion: refusing every
+valid block, corrupting payload, omitting either finish transition, using Finished
+for an I/O failure, poisoning preflight, and omitting the Failed transition. It never mutates tracked production sources. Results, hashes
+and stderr remain in the fresh local directory. Source mutation anchors are
+checked exactly once, so a refactor requires reviewing the control rather than
+silently skipping it. These mutants test oracle sensitivity, not production bugs.

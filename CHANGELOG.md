@@ -9,6 +9,11 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
   seek checks. Preserve fixture mux changes and the default mixed-seek budget
   refusal explicitly; no application SLA or broad production claim follows.
 
+- Strengthen writer fuzzing with a guaranteed-valid acceptance lane and portable
+  oracle controls after a second-agent review reproduced missed false-refusal
+  and terminal-state mutants. Enforce successful/failed/preflight state classes
+  and record 18,000 follow-up mutations separately from production defects.
+
 - Add an optional bounded writer state fuzz target with caller-record/output,
   preflight and terminal-I/O oracles, deterministic sink faults and separate
   versioned replay. Record native packet/seek checks and explicit campaign gaps;

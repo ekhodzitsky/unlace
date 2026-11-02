@@ -37,9 +37,34 @@ of every format rule. Caller-record comparison prevents a simple matching
 writer/reader byte corruption from passing; separate native checks below add
 independent evidence for a fixed original seed subset.
 
+A second-agent review subsequently identified a real limitation in this first
+oracle: it could accept arbitrary false refusals of valid blocks because its
+expected records were appended only on Ok. An intentional copied-library mutant
+rejecting every valid block passed all 157 original seeds. Ordinary writer tests
+and fixed native output checks separately required successful writing, so this
+was a fuzz-tool false negative, not a demonstrated production defect.
+
+The enhanced target adds a guaranteed-valid acceptance lane in both writer modes.
+Its three blocks include 2–8 laced frames, variable flush/packing/short writes and
+bounded signed padding. Successful finish and exact independently predetermined
+counts are mandatory. The original writer-v1 interpretation and optional emitted
+witnesses retain their meaning. A portable oracle-control check fails before the
+enhancement on the false-refusal mutant; after it, clean output passes and
+false-refusal/payload/state mutants each fail with exit 101.
+
+The review also reproduced two missed terminal-state mutants: successful live
+finish retaining Writing, and I/O failure claiming Finished. Both initially
+passed all original seeds. Successful explicit/automatic finish now must set
+Finished before the terminal no-I/O oracle runs. Typed I/O/position/I/O-budget
+errors require Failed, invalid/unsupported preflight errors require Writing, and
+state errors must report the actual state. Other errors cannot claim Finished.
+A deliberately poisoned preflight control was also shown to pass before this
+classification and fail after it. Seven intentional mutants, including both
+finish transitions, are now part of the portable control check.
+
 ## Executed campaigns
 
-Two final-harness campaigns used Rust 1.89.0 (LLVM 20.1.7), compatible
+Two initial qualified-harness campaigns, before the added acceptance lane, used Rust 1.89.0 (LLVM 20.1.7), compatible
 LLVM tools 20.1.5-rust-1.88.0-stable and Python 3.14.4 on Linux x86_64.
 Campaign A starts with original writer seeds plus retained pilot inputs; B replays
 A's retained corpus with a different RNG seed. Neither found a crash, timeout or
@@ -79,9 +104,29 @@ within documented small ranges. Parent and LLVM processes have separate costs.
 There is no lifetime recording retention in the production writer implied by
 this bounded test model; the harness deliberately retains its small oracle.
 
+
+
+After the review, fresh campaigns replayed retained inputs with the strengthened
+oracles. Each row pins its own target hash; the earlier rows do not retrospectively
+claim later assertions.
+
+| Oracle revision | RNG seed | Mutations | Seed replays | Executions | Result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Acceptance | 6110213 | 5,000 | 179 | 5,179 | No failure |
+| Acceptance | 6110214 | 5,000 | 179 | 5,179 | No failure |
+| Acceptance and successful finish | 6110215 | 5,000 | 179 | 5,179 | No failure |
+| Acceptance, finish and failure-state classification | 6110216 | 3,000 | 179 | 3,179 | No failure |
+
+These follow-ups add 18,000 mutations; the last 3,000 run with every final state
+assertion and replay 179 unique inputs for coverage. The final writer mapping is
+write/ebml.rs: 185/200 regions, 16/16 functions; write/mod.rs: 1385/1597 regions, 65/71 functions. No new production failure was found.
+The portable oracle check passes clean code and all seven intentional mutants;
+the missed-before controls and second-agent closure remain local, while these
+sanitized conclusions are tracked.
+
 ## Oracle controls and interoperability
 
-Two intentional mutations in isolated local copies of production sources were
+The two original intentional mutations in isolated local production copies were
 both detected with exit 101 using unchanged original seeds:
 
 - Flip the first byte of buffered frame payloads while preserving lengths. The

@@ -282,6 +282,23 @@ fn invariant(
         calls.total.get() - before.2 <= maximum,
         "I/O allowance exceeded"
     );
+    match result {
+        Err(
+            WriteError::Io { .. } | WriteError::Position { .. } | WriteError::Limit("I/O calls"),
+        ) => {
+            assert_eq!(
+                w.state(),
+                WriteState::Failed,
+                "I/O error did not fail writer"
+            );
+        }
+        Err(WriteError::Invalid(_) | WriteError::Unsupported(_) | WriteError::OpusHead(_)) => {
+            assert_eq!(w.state(), WriteState::Writing, "preflight poisoned writer");
+        }
+        Err(WriteError::State(state)) => assert_eq!(w.state(), *state),
+        Err(_) => assert_ne!(w.state(), WriteState::Finished, "error claimed completion"),
+        Ok(()) => (),
+    }
     if result.is_err() && w.state() == WriteState::Writing {
         assert_eq!(
             (w.position(), w.buffered(), calls.total.get()),
@@ -300,7 +317,12 @@ fn invariant(
         assert_eq!(calls.total.get(), n);
     }
 }
-fn run(data: &[u8], indexed: bool, faults: bool, emit: Option<&std::path::Path>) {
+fn run(
+    data: &[u8],
+    indexed: bool,
+    faults: bool,
+    emit: Option<&std::path::Path>,
+) -> Option<(u64, u64)> {
     let mut input = Input { data, position: 0 };
     let mut control = [0u8; 20];
     for b in &mut control {
@@ -420,7 +442,7 @@ fn run(data: &[u8], indexed: bool, faults: bool, emit: Option<&std::path::Path>)
         LiveWriter::new(sink, &tracks, config).map(Writer::Live)
     };
     assert!(calls.total.get() <= maximum);
-    let Ok(mut w) = created else { return };
+    let Ok(mut w) = created else { return None };
     let mut expected = Vec::new();
     let mut blocks = 0u64;
     let mut last_raw = None;
@@ -438,6 +460,7 @@ fn run(data: &[u8], indexed: bool, faults: bool, emit: Option<&std::path::Path>)
             2 => {
                 let value = w.finish();
                 if let Ok(r) = &value {
+                    assert_eq!(w.state(), WriteState::Finished, "finish did not terminate");
                     receipt = Some(*r);
                 }
                 value.map(|_| ())
@@ -591,10 +614,12 @@ fn run(data: &[u8], indexed: bool, faults: bool, emit: Option<&std::path::Path>)
         let before = (w.position(), w.buffered(), calls.total.get());
         let result = w.finish();
         if let Ok(r) = &result {
+            assert_eq!(w.state(), WriteState::Finished, "finish did not terminate");
             receipt = Some(*r);
         }
         invariant(&mut w, before, &calls, &result.map(|_| ()), maximum);
     }
+    let outcome = receipt.map(|r| (r.blocks, r.packets));
     let sink = w.sink();
     assert!(sink.data.len() <= MAX_OUTPUT);
     if let Some(r) = receipt {
@@ -639,6 +664,47 @@ fn run(data: &[u8], indexed: bool, faults: bool, emit: Option<&std::path::Path>)
             file.write_all(&sink.data).unwrap();
         }
     }
+    outcome
+}
+// This lane must accept every generated block. Its expected counts do not
+// depend on returned Ok results, unlike the intentionally invalid action lane.
+fn valid_input(data: &[u8]) -> (Vec<u8>, u64) {
+    let byte = |i: usize| data.get(i).copied().unwrap_or(0);
+    let count = 2 + byte(0) % 7;
+    let mut out = vec![0; 20];
+    out[0] = 2;
+    out[3] = byte(1) % 32;
+    out[4] = byte(2) & 3;
+    out[5] = byte(3) & 3;
+    out[6] = 3;
+    out[7] = 3;
+    out[8] = 15;
+    out[9] = 3;
+    let payload: Vec<u8> = (0..64).map(|i| byte(i + 4)).collect();
+    for i in 0..3i64 {
+        let laced = i == 1;
+        out.extend_from_slice(&[0, 0]);
+        out.extend_from_slice(&(i * 200).to_le_bytes());
+        out.extend_from_slice(&[
+            if laced { 8 } else { 0 },
+            if laced { count } else { 0 },
+            if laced { 1 + byte(4) % 3 } else { 0 },
+            if laced {
+                (i16::from(byte(5) % 39) - 19) as i8 as u8
+            } else {
+                0
+            },
+            0,
+            0,
+            16,
+        ]);
+        out.extend_from_slice(&payload);
+        if byte(i as usize + 6) & 1 != 0 {
+            out.push(1);
+        }
+    }
+    out.push(2);
+    (out, 2 + u64::from(count))
 }
 fn main() {
     let mut args = std::env::args_os().skip(1);
@@ -663,7 +729,15 @@ fn main() {
     io::stdin().take(8194).read_to_end(&mut data).unwrap();
     assert!(data.len() <= 8193);
     for indexed in [false, true] {
-        run(&data, indexed, false, emit.as_deref());
-        run(&data, indexed, true, emit.as_deref());
+        let _ = run(&data, indexed, false, emit.as_deref());
+        let _ = run(&data, indexed, true, emit.as_deref());
+    }
+    let (valid, packets) = valid_input(&data);
+    for indexed in [false, true] {
+        assert_eq!(
+            run(&valid, indexed, false, None),
+            Some((3, packets)),
+            "guaranteed-valid sequence refused or miscounted"
+        );
     }
 }
