@@ -198,7 +198,8 @@ boundaries. A finalized output from an unknown-size input proves completeness
 of the observed output bytes, not the original producer's intended recording.
 The example reports both input and output completion separately.
 
-The initial writing API and this packing update remain under Unreleased.
+The initial writing API and packing update are included in the private 0.2.0
+source milestone.
 Relative to the first writer source, `WriteConfig` literals need
 `max_cluster_duration_ns`, `WriteLimits` literals need `max_cluster_buffer`, and
 `WriteReceipt` literals/patterns must account for `clusters`. `blocks` counts
@@ -206,8 +207,8 @@ encoded blocks, which no longer imply the same Cluster count. Default
 `write_block` now buffers one bounded Cluster: call `flush` or `finish` before
 observing emitted media; `into_inner` and Drop discard pending bytes. Setting
 either packing bound to zero restores per-block direct emission. This is an
-explicit incompatible source/API behavior change for the pending minor milestone.
-Cargo remains the unpublished 0.1.0 source milestone. It joins the pending next pre-1.0 minor source milestone
-already required by reader API changes; no release/tag/publication is implied.
+explicit incompatible source/API behavior change included in 0.2.0. Cargo and
+the changelog identify that private source milestone; no release/tag/publication
+is implied.
 The crate's [SemVer policy](versioning.md) governs future compatibility. There is
 no separately versioned serialized writer continuation or checkpoint format.

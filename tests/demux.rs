@@ -1124,14 +1124,6 @@ fn opus_delay_quantization_is_explicit_and_pre_skip_is_exact_samples() {
             }))
         ));
     }
-    // An unwritten zero default is semantically zero; a nonzero missing delay conflicts.
-    let data = document(&opus_track(&opus_head(0), None, 2), &[], &[], &[], false);
-    drain(&mut reader(&data)).unwrap();
-    let data = document(&opus_track(&opus_head(312), None, 2), &[], &[], &[], false);
-    let entry = encoded_offset(&data, &opus_track(&opus_head(312), None, 2));
-    assert!(
-        matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,element_id:0x56aa,kind:TimingErrorKind::CodecDelayMismatch})) if offset==entry)
-    );
 }
 #[test]
 fn scalar_timing_failures_preserve_source_offsets_and_poison_continuation() {
@@ -1341,4 +1333,79 @@ fn duration_overflow_and_opus_track_type_identify_their_source_fields() {
     assert!(
         matches!(drain(&mut reader(&data)),Err(DemuxError::Timing(TimingError {offset,element_id:0x83,kind:TimingErrorKind::OpusTrackType})) if offset==expected)
     );
+}
+
+#[test]
+fn opus_exact_delay_rejects_a_whole_nanosecond_difference_in_both_directions() {
+    for delay in [6_499_999, 6_500_001] {
+        let data = document(
+            &opus_track(&opus_head(312), Some(delay), 2),
+            &[],
+            &[],
+            &[],
+            false,
+        );
+        assert!(
+            matches!(
+                drain(&mut reader(&data)),
+                Err(DemuxError::Timing(TimingError {
+                    element_id: 0x56aa,
+                    kind: TimingErrorKind::CodecDelayMismatch,
+                    ..
+                }))
+            ),
+            "accepted delay {delay}"
+        );
+    }
+}
+
+#[test]
+fn codec_id_requires_printable_ascii_before_the_null_terminator() {
+    for control in [1, 9, 10, 31, 127] {
+        let mut t = track(1, true, &[]);
+        let start = t.windows(6).position(|b| b == b"A_TEST").unwrap();
+        t[start + 5] = control;
+        let data = document(&t, &[], &[], &[], false);
+        assert!(
+            matches!(
+                drain(&mut reader(&data)),
+                Err(DemuxError::Timing(TimingError {
+                    element_id: 0x86,
+                    kind: TimingErrorKind::InvalidScalar,
+                    ..
+                }))
+            ),
+            "accepted control {control}"
+        );
+    }
+}
+
+#[test]
+fn opus_zero_default_is_accepted_but_missing_nonzero_delay_is_not_inferred() {
+    let zero = document(&opus_track(&opus_head(0), None, 2), &[], &[], &[], false);
+    drain(&mut reader(&zero)).unwrap();
+    let t = opus_track(&opus_head(312), None, 2);
+    let data = document(&t, &[], &[], &[], false);
+    let entry = encoded_offset(&data, &t);
+    assert!(
+        matches!(drain(&mut reader(&data)), Err(DemuxError::Timing(TimingError {
+        offset, element_id: 0x56aa, kind: TimingErrorKind::CodecDelayMismatch
+    })) if offset == entry)
+    );
+}
+
+#[test]
+fn printable_ascii_endpoints_and_post_terminator_bytes_preserve_string_semantics() {
+    for codec in [b"A_TES ".as_slice(), b"A_TES~", b"A_T\0\x01\xff"] {
+        let mut t = track(1, true, &[]);
+        let start = t.windows(6).position(|b| b == b"A_TEST").unwrap();
+        t[start..start + 6].copy_from_slice(codec);
+        let data = document(&t, &[], &[], &[], false);
+        let mut demux = reader(&data);
+        drain(&mut demux).unwrap();
+        assert_eq!(
+            demux.tracks()[0].codec_id.as_bytes(),
+            codec.split(|&b| b == 0).next().unwrap()
+        );
+    }
 }

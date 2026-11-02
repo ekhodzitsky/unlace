@@ -2,11 +2,12 @@
 
 Unlace is a private Rust project for bounded WebM and Matroska container reading
 and writing.
-The **0.1.0 source milestone** provides allocation-free EBML integer parsing.
-Unreleased work adds bounded sequential audio packet events over `Read`, with
-track selection and all block lacing modes, plus initial live/indexed WebM
-writing from encoded blocks. These early subsets remain under
-qualification; unlace is not a general or production-qualified Matroska reader.
+The **0.2.0 private source milestone** provides allocation-free EBML integers,
+bounded sequential audio packets over `Read`, selected-track access and all lacing
+modes, verified seeking, and live/indexed WebM writing from encoded blocks.
+These supported subsets have scoped independent qualification; unlace is not a
+general or production-qualified Matroska reader. The earlier 0.1.0 milestone
+contained only integer parsing. No public crate has been released.
 
 [Design](docs/design.md) · [Competitors](docs/comparison.md) · [Verification](docs/verification.md)
 
@@ -14,7 +15,7 @@ The target is a small container library with bounded memory, exact packet and
 timing information, sequential input without mandatory seeking, and independently
 verified seek behavior. Opus decoding belongs to a separate codec library.
 
-## Try the current foundation
+## Try the current source
 
 Rust 1.89.0 and Cargo are required. There are no Cargo dependencies and no
 build-time downloads. From this private checkout:
@@ -119,7 +120,8 @@ selected packet bytes with two independent demuxers. The
 [Opus timing contract](docs/opus-timing.md) includes independently checked
 mono/stereo start/end trimming. Broader decoded-audio coverage remains unfinished. It does not decode Opus,
 fetch URLs or recognize speech.
-The [objective audit](docs/objective-audit.md) maps the original requirements to
+The [detailed source audit](docs/source-audit.md) records corrected defects and
+remaining qualification risks. The historical [objective audit](docs/objective-audit.md) maps the original requirements to
 source, tests and scoped evidence, including the additional
 [implementation studies](docs/implementation-studies.md) and
 [speech corpus](docs/speech-qualification.md).

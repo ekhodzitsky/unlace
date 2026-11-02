@@ -1283,7 +1283,9 @@ fn float(bytes: &[u8]) -> Result<f64, DemuxError> {
 }
 fn validate_string(bytes: &[u8], ascii: bool) -> Result<(), DemuxError> {
     let prefix = bytes.split(|&byte| byte == 0).next().unwrap_or(&[]);
-    if (ascii && !prefix.is_ascii()) || std::str::from_utf8(prefix).is_err() {
+    if (ascii && !prefix.iter().all(|byte| (0x20..=0x7e).contains(byte)))
+        || std::str::from_utf8(prefix).is_err()
+    {
         return Err(DemuxError::Invalid("invalid string encoding"));
     }
     Ok(())

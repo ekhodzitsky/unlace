@@ -1,5 +1,9 @@
 # Original objective audit
 
+This historical coverage record is followed by the stricter
+[0.2.0 source audit](source-audit.md). Completion of the original implementation
+scope is not evidence of current public-release or production readiness.
+
 Audited against source `2143ba0`, plus the continuation example and evidence
 updates in this change. The original implementation and qualification work is
 complete for the explicit supported container subset below. This is an

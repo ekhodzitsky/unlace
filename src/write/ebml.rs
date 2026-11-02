@@ -72,13 +72,7 @@ impl Bytes {
         self.raw(&bytes[8 - w..])
     }
     pub fn prepend_header(&mut self, id: u32, n: u64) -> Result<(), WriteError> {
-        let id_bytes = id.to_be_bytes();
-        let id_width = ((32 - id.leading_zeros()) as usize).div_ceil(8);
-        let (size_bytes, size_width) = size(n, None)?;
-        let mut header = [0; 12];
-        header[..id_width].copy_from_slice(&id_bytes[4 - id_width..]);
-        let width = id_width + size_width;
-        header[id_width..width].copy_from_slice(&size_bytes[8 - size_width..]);
+        let (header, width) = header(id, n)?;
         let old = self.data.len();
         self.raw(&header[..width])?;
         self.data.copy_within(0..old, width);

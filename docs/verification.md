@@ -205,3 +205,12 @@ The continuation example pauses after at most 17 bytes and resumes the same
 reader; speech and selected mixed-track runs match the original packet/byte
 counts and require finite End. No production library or Cargo API/version changed
 in this audit slice. The full local verification gates pass again with Rust 1.89.
+
+The private 0.2.0 [source audit](source-audit.md) fixes the negative exactly-one-
+nanosecond Opus delay boundary in both APIs and nonprintable CodecID acceptance.
+All Rust 1.89 gates pass with 143 integration tests, two unit tests and five
+doctests, plus an exhaustive all-u16 pre-skip relation check. All 25 selected-audio
+inputs retain their qualified packet fields, and all 14 writer outputs reproduce
+their old SHA-256. A final-source campaign completes 2,000 mutations plus 156 seed
+replays without a finding. Writer coverage-guided mutation and broader production
+qualification remain explicit gaps; passing these checks is not release approval.

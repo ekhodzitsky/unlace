@@ -167,25 +167,21 @@ pub(super) fn validate(track: &Track, offsets: Offsets) -> Result<Option<OpusTim
             TimingErrorKind::InputRateMismatch,
         ));
     }
-    // u64*48000 and u16*1e9 both fit i128. Keep exact rational metadata rather
-    // than converting the pre-skip through floating point or sample rounding.
-    let difference =
-        i128::from(track.codec_delay_ns) * 48_000 - i128::from(head.pre_skip_ns_numerator());
-    if !(-48_000..48_000).contains(&difference) {
-        return Err(failure(
-            offsets.delay.map_or(offsets.entry, |h| h.offset),
-            0x56aa,
-            TimingErrorKind::CodecDelayMismatch,
-        ));
-    }
+    let difference = head
+        .codec_delay_difference(track.codec_delay_ns)
+        .ok_or_else(|| {
+            failure(
+                offsets.delay.map_or(offsets.entry, |h| h.offset),
+                0x56aa,
+                TimingErrorKind::CodecDelayMismatch,
+            )
+        })?;
     Ok(Some(OpusTiming {
         pre_skip: head.pre_skip_samples(),
         precision: if difference == 0 {
             DelayPrecision::Exact
         } else {
-            DelayPrecision::Quantized {
-                difference: difference as i32,
-            }
+            DelayPrecision::Quantized { difference }
         },
     }))
 }

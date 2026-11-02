@@ -530,11 +530,9 @@ fn validate_track(t: &TrackConfig<'_>) -> Result<(), WriteError> {
                 "A_OPUS" => {
                     let h = crate::opus::parse_opus_head(t.codec_private)
                         .map_err(WriteError::OpusHead)?;
-                    let difference = i128::from(t.codec_delay_ns) * 48_000
-                        - i128::from(h.pre_skip_ns_numerator());
                     if u64::from(h.channels()) != a.channels
                         || f64::from(h.input_sample_rate()) != a.sampling_frequency
-                        || !(-48_000..48_000).contains(&difference)
+                        || h.codec_delay_difference(t.codec_delay_ns).is_none()
                     {
                         return Err(WriteError::Invalid("Opus channels, rate or delay"));
                     }

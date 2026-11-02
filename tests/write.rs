@@ -1218,3 +1218,20 @@ fn negative_first_block_and_later_nonnegative_cue_share_a_verified_cluster() {
         .unwrap();
     assert_eq!(result.actual_timestamp_ns, -6_532_768);
 }
+
+#[test]
+fn opus_exact_delay_rejects_a_whole_nanosecond_difference_before_output() {
+    for delay in [6_499_999, 6_500_001] {
+        let mut t = track();
+        t.codec_delay_ns = delay;
+        let mut sink = Vec::new();
+        assert!(
+            matches!(
+                LiveWriter::new(&mut sink, &[t], WriteConfig::default()),
+                Err(WriteError::Invalid("Opus channels, rate or delay"))
+            ),
+            "accepted delay {delay}"
+        );
+        assert!(sink.is_empty());
+    }
+}

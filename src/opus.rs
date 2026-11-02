@@ -112,6 +112,13 @@ impl<'a> OpusHead<'a> {
     pub fn extension(self) -> &'a [u8] {
         self.extension
     }
+    // Container minus exact pre-skip, in 1/48,000 nanoseconds. Both callers
+    // require strictly less than one nanosecond, including the negative bound.
+    pub(crate) fn codec_delay_difference(self, delay_ns: u64) -> Option<i32> {
+        let difference = i128::from(delay_ns) * 48_000 - i128::from(self.pre_skip_ns_numerator());
+        (difference.abs() < 48_000).then_some(difference as i32)
+    }
+
     /// Exact pre-skip time as a numerator of nanoseconds over 48,000.
     /// Retaining the denominator avoids losing fractional nanoseconds.
     pub fn pre_skip_ns_numerator(self) -> u64 {
@@ -189,4 +196,27 @@ pub fn parse_opus_head(input: &[u8]) -> Result<OpusHead<'_>, OpusError> {
         input_rate: u32::from_le_bytes([input[12], input[13], input[14], input[15]]),
         gain: i16::from_le_bytes([input[16], input[17]]),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn codec_delay_accepts_only_the_adjacent_integers_for_every_pre_skip() {
+        let mut bytes = *b"OpusHead\x01\x01\0\0\x80\xbb\0\0\0\0\0";
+        for samples in 0..=u16::MAX {
+            bytes[10..12].copy_from_slice(&samples.to_le_bytes());
+            let head = super::parse_opus_head(&bytes).unwrap();
+            let numerator = u64::from(samples) * 1_000_000_000;
+            let floor = numerator / 48_000;
+            let ceil = numerator.div_ceil(48_000);
+            for delay in [floor.saturating_sub(1), floor, ceil, ceil + 1, u64::MAX] {
+                assert_eq!(
+                    head.codec_delay_difference(delay).is_some(),
+                    delay == floor || delay == ceil,
+                    "pre-skip {samples}, delay {delay}"
+                );
+            }
+        }
+    }
 }

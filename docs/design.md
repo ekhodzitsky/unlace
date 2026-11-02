@@ -31,7 +31,8 @@ interpret them; it does not promise decoded audio simply because packets parsed.
 
 ## Capability boundary
 
-The initial milestone parses ID/size integers from slices. Unreleased work adds
+The initial 0.1.0 milestone parses ID/size integers from slices. The private
+0.2.0 source milestone adds
 a schema-driven incremental `Read` framing core; its exact structural scope and
 limits are described in [streaming.md](streaming.md). It does not yet validate
 a complete WebM document. A separate [block parser](blocks.md) splits complete

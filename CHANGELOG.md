@@ -4,6 +4,20 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+No changes yet.
+
+## 0.2.0 - 2026-11-02 (unpublished source milestone)
+
+- Reject Opus CodecDelay values whose difference from exact pre-skip is a whole
+  nanosecond or greater in either direction. Fix the previously accepted negative
+  one-nanosecond boundary in both reader and writer through one shared check.
+- Require printable ASCII before the first null terminator in EBML String fields,
+  including CodecID. Preserve valid termination semantics and UTF-8 field rules.
+- Deduplicate writer Cluster header serialization. Record a module-by-module
+  audit, exhaustive delay-boundary regression and repeated corpus/fuzz evidence.
+- Cut the private 0.2.0 source milestone for the accumulated reader/writer API.
+  This is not a public release, license grant, tag or package publication.
+
 - Add a tiny-chunk continuation example, pinned supplemental implementation
   studies, own multilingual speech packet/PCM checks and a requirement audit.
   Preserve explicit unsupported/failure observations and existing benchmark scope.
@@ -22,7 +36,7 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
   Breaking relative to the initial writer: configuration/receipt fields expand
   and default block writes buffer one Cluster until rollover, flush or finish.
   See the writing migration notes; zero packing bounds restore direct emission.
-  This joins the pending minor source milestone; no Cargo version/release change.
+  These incompatible additions are included in this 0.2.0 source milestone.
 
 - Record pinned selected-audio comparisons against five competitor libraries,
   including separate classic/incremental libwebm adapters. Gate exact fields
@@ -60,17 +74,17 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
   refuse padding beyond a known block duration before emitting packets.
 - Qualify exact mono/stereo decoded start/end spans with independent libavformat
   trim metadata and the same external libopus decoder, with no Cargo dependency.
-- Pending API impact: Track literals require `opus_timing`, Packet literals need
-  `block_discard_padding_ns`, and DemuxError matches need Timing. Generic timing
-  Invalid errors become located Timing causes. Accumulate these changes for the
-  next pre-1.0 minor source milestone; the original 0.1.0 stays unpublished.
+- API migration from the initial integer-only milestone: Track literals require
+  `opus_timing`, Packet literals need `block_discard_padding_ns`, and DemuxError
+  matches need Timing. Generic timing Invalid errors become located Timing
+  causes. These incompatible changes are included in 0.2.0; the original 0.1.0
+  stays unpublished.
 
 - Preserve MaxBlockAdditionID track declarations and safely skip bounded opaque
   BlockAdditions on unselected tracks. Selected-track additions remain explicit
   unsupported errors, including when additions precede the group's Block.
   Track struct literals must initialize the new `max_block_addition_id` field
-  (default metadata value 0); account for this pending API change at the next
-  source milestone under the pre-1.0 minor-version policy.
+  (default metadata value 0); this incompatible addition is included in 0.2.0.
 - Qualify selected audio packet bytes/order and CodecPrivate on pinned native
   Chromium MediaRecorder and completed YouTube audio against FFmpeg and Nestegg.
   Record sanitized corpus identities and scope; raw media/results remain local.

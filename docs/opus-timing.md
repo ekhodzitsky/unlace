@@ -52,7 +52,11 @@ CodecDelayMismatch. This explicit quantization rule is the reader's policy where
 the mapping leaves integer rounding unspecified; it is not a stronger claim
 about the precision of the source. An unwritten zero CodecDelay uses EBML's
 semantic zero default; it matches only zero pre-skip. Missing nonzero delay
-therefore fails instead of being silently derived from CodecPrivate.
+therefore fails instead of being silently derived from CodecPrivate. The
+[codec mapping](https://www.matroska.org/technical/codec_specs.html#a_opus) uses
+mandatory-presence wording; the reader retains its explicit zero-default policy
+for native MediaRecorder compatibility. This is not a claim that physically
+omitted delay satisfies every mapping/conformance interpretation.
 
 `packet.timestamp_ns` subtracts the raw CodecDelay exactly once from the raw
 scaled block origin. `block_timestamp_ns` preserves that origin before delay.
@@ -102,8 +106,7 @@ Fatal errors poison continuation; WouldBlock still retains state exactly.
 Track literals now need `opus_timing` (normally None for manually constructed
 opaque metadata). Packet literals need `block_discard_padding_ns`. Exhaustive
 DemuxError matches need the Timing variant. Timing errors formerly reported as
-generic Invalid now use the located typed variant. These pending API changes
-accumulate under Unreleased for the next pre-1.0 minor source milestone.
+generic Invalid now use the located typed variant. These incompatible additions are included in the private 0.2.0 source milestone.
 
 ## Decoded sample qualification
 
