@@ -292,7 +292,6 @@ struct Group {
     duration_header: Option<Header>,
 }
 struct Packets {
-    ranges: [Range<usize>; 256],
     count: usize,
     next: usize,
     track: usize,
@@ -350,6 +349,10 @@ pub struct Demuxer<R> {
     metadata: Vec<u8>,
     block_data: Vec<u8>,
     packets: Option<Packets>,
+    // Reuse checked frame views across blocks; clearing/moving pending packet
+    // metadata must not initialize or copy a maximum-size table per packet.
+    frame_ranges: [Range<usize>; 256],
+    scratch: [u8; 8192],
     failed: bool,
 }
 
@@ -399,6 +402,8 @@ impl<R: Read> Demuxer<R> {
             metadata: Vec::new(),
             block_data: Vec::new(),
             packets: None,
+            frame_ranges: std::array::from_fn(|_| 0..0),
+            scratch: [0; 8192],
             failed: false,
         })
     }
@@ -528,7 +533,7 @@ impl<R: Read> Demuxer<R> {
                     0
                 };
                 DemuxEvent::Packet(Packet {
-                    data: &self.block_data[pending.ranges[index].clone()],
+                    data: &self.block_data[self.frame_ranges[index].clone()],
                     track_number: track.number,
                     timestamp_ns,
                     block_timestamp_ns: pending.timestamp,
@@ -559,9 +564,8 @@ impl<R: Read> Demuxer<R> {
             return Ok(Action::Packet);
         }
         self.packets = None;
-        let mut scratch = [0; 8192];
         for _ in 0..self.limits.max_events_per_poll {
-            match self.reader.poll(&mut scratch)? {
+            match self.reader.poll(&mut self.scratch)? {
                 stream::Event::Start { header, kind } => self.start(header, kind)?,
                 stream::Event::Data { len } => {
                     let leaf = self.leaf.ok_or(DemuxError::Invalid("data without leaf"))?;
@@ -573,7 +577,7 @@ impl<R: Read> Demuxer<R> {
                     output
                         .try_reserve(len)
                         .map_err(|_| DemuxError::Limit("allocation"))?;
-                    output.extend_from_slice(&scratch[..len]);
+                    output.extend_from_slice(&self.scratch[..len]);
                 }
                 stream::Event::End { header, .. } => {
                     if let Some(action) = self.end(header)? {
@@ -1191,10 +1195,9 @@ impl<R: Read> Demuxer<R> {
         }
         let mut start =
             self.block_data.len() - parsed.frames().map(|frame| frame.len()).sum::<usize>();
-        let mut ranges = std::array::from_fn(|_| 0..0);
         for (index, frame) in parsed.frames().enumerate() {
             let end = start + frame.len();
-            ranges[index] = start..end;
+            self.frame_ranges[index] = start..end;
             start = end;
         }
         // Check every future laced timestamp now, so poll's borrowing path needs
@@ -1208,7 +1211,6 @@ impl<R: Read> Demuxer<R> {
                 .ok_or_else(arithmetic)?;
         }
         self.packets = Some(Packets {
-            ranges,
             count,
             next: 0,
             track: track_index,

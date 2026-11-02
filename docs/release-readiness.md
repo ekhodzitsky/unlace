@@ -1,8 +1,9 @@
 # Public release and production readiness
 
-Assessment date: 2026-11-02. Current version: **0.2.0, private and unpublished**.
-The reviewed implementation is `0c4f9ce`; subsequent performance/report changes
-are documentation and local research. The [source audit](source-audit.md) and
+Assessment date: 2026-11-02. Current version: **0.2.1, private and unpublished**.
+The original implementation audit covers `0c4f9ce`; the compatible 0.2.1
+[reader refactoring](reader-performance.md) adds pinned profiles, repeated corpus
+checks and a separate second-agent review. The [source audit](source-audit.md) and
 [current measurements](performance-0.2.md) provide evidence for this assessment.
 
 **Public release: not ready now. Production: no general production approval.**
@@ -16,7 +17,7 @@ visibility changes, public tags, release uploads or hosted workflows.
 | --- | --- | --- |
 | Distribution license | No owner-selected license, license file or Cargo license metadata. Cargo package warns about the missing field. | Blocking owner decision under the repository policy; do not invent a grant. |
 | Publication authorization | Repository remains private, Cargo publish=false, no public release/tag authorized. | Separate owner action required before distribution. Asking whether it is ready does not authorize publication. |
-| Coherent source/API version | Cargo.toml/lock both 0.2.0; changelog and migration notes include accumulated reader/writer incompatibilities. | Passed for a private source milestone. Pre-1.0 status itself is not a reason a clearly experimental alpha could never be released. |
+| Coherent source/API version | Cargo.toml/lock both 0.2.1; changelog and migration notes include accumulated reader/writer incompatibilities. | Passed for a private source milestone. Pre-1.0 status itself is not a reason a clearly experimental alpha could never be released. |
 | Package construction | Local offline locked packaging compiles from the generated package. Package-list audit excludes raw runs, Backlog, credentials, target and machine state. | Passed locally; a successful package is not a license or production qualification. |
 | Supported scope and documentation | Explicit audio/container subset, ownership, bounded work, error/EOF states, seek suffixes and writer receipts; complete consumer examples. | Documented. Experimental public wording must retain these boundaries. |
 | Compatibility and support commitment | Migration notes exist; no stable 1.x, supported-platform matrix or production support/security-response commitment has been established. | Define the intended alpha scope and owner contact/support process before making broader public promises. |
@@ -32,8 +33,8 @@ for unrestricted production use. No license choice is made in this change.
 
 | Area | Established evidence | Remaining limit |
 | --- | --- | --- |
-| Correctness review | Every production module reviewed; two validation defects reproduced before fixes; shared delay/header logic; exact metadata and source/state contracts. | Internal review only, not independent review or certification. The earlier passing suite did not prevent finding these defects. |
-| Mandatory local gates | Rust 1.89 formatting, denied-warning all-target Clippy, debug/release tests, denied-warning rustdoc and zero-dependency check. 143 integration tests, two unit tests, five doctests. | Tests pass on the recorded Linux x86_64 setup, not an asserted platform matrix. |
+| Correctness review | Every production module reviewed; two validation defects reproduced before fixes; shared delay/header logic; exact metadata and source/state contracts. | The original audit was author review. A separately authorized second agent later reviewed critical contracts and 0.2.1 buffer reuse, finding three fuzz-oracle gaps that were reproduced and closed. This is same-session review, not external certification. |
+| Mandatory local gates | Rust 1.89 formatting, denied-warning all-target Clippy, debug/release tests, denied-warning rustdoc and zero-dependency check. 144 integration tests, two unit tests, five doctests. | Tests pass on the recorded Linux x86_64 setup, not an asserted platform matrix. |
 | Exact encoded audio | Complete real producer/synthetic manifests, all laces, Opus delay/whole-block padding, mono/stereo and added speech decoded-span checks. | Broader multichannel/video decoding and arbitrary codec setup are not qualified; decoding remains outside the library. |
 | Long input | Six-hour silence plus [5.39-hour natural speech and a 2.92 GB mixed source](natural-corpus.md); 9,698,068 native packet comparisons and full mono/stereo rolling decoded checks pass. | Concatenated audiobook speech and repeated synthetic video are scoped fixtures, not real conversations or a consumer/platform qualification. Mixed seek exceeds the default before-first budget. |
 | Hostile data and state | Every-byte small-fixture truncations/source faults, false offsets, range holes, cancellation and latched revision checks. Final audit campaign: 2,000 mutations plus 156 seed replays without a finding; historical campaigns remain separate. | Bounded short-input campaigns are not a safety proof. A later [writer campaign](writer-fuzzing.md) adds 30,000 mutations and native packet/seek checks without a finding. Exhaustive allocator-fault coverage is still absent. |
@@ -57,8 +58,9 @@ latency budgets, and test its actual workload against those contracts.
 2. Define supported production input/platform profiles and consumer acceptance
    budgets. Exercise representative natural long recordings, actual ranged/cache
    providers and real output failure/publication policies on those profiles.
-3. Obtain an independent review of framing, exact timing, index attestation and
-   writer preflight/finalization state. Track findings and regressions in Backlog.
+3. Retain the completed second-agent review of framing, exact timing, index
+   attestation and writer state, including its reproduced oracle corrections.
+   Additional external assurance depends on the intended consumer risk profile.
 4. Extend the [bounded writer campaigns](writer-fuzzing.md) for the chosen risk
    profile and add allocator-fault testing. Preserve immutable tool/source pins,
    minimized regressions for findings and explicit coverage gaps.

@@ -222,3 +222,11 @@ their own equivalence gates. An additional common-cache experiment removes a
 large standard-BufReader reread effect before interpreting Rust performance.
 Neither low allocations nor passing correctness tests imply speed leadership or
 production readiness. Raw records remain local and historical timings unchanged.
+
+
+The private 0.2.1 [reader refactoring](reader-performance.md) reuses checked frame
+ranges and retains 8 KiB scratch per instance, with unchanged packet/limit/EOF
+contracts. Full gates cover 144 integration tests, two unit tests and five
+doctests; complete historical/natural/large manifests, writer hashes, paused
+reads, seek suffixes and fresh reader/writer fuzz campaigns pass. Its source
+cost profiles are distinct from real-clock timing and broad production approval.

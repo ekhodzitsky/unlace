@@ -4,6 +4,13 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+## 0.2.1 - 2026-11-02 (unpublished source milestone)
+
+- Reuse the reader's checked frame ranges and initialized I/O scratch instead of
+  rebuilding large buffers for each block/poll. Preserve parsing, timing, trim,
+  limits and completion contracts. The 8 KiB scratch is now retained per reader;
+  no heap allocation or public API requirement is added.
+
 - Qualify 5.39 hours of licensed natural speech and a physical 2.92 GB mixed
   container with complete bounded native packet, decoded-span, continuation and
   seek checks. Preserve fixture mux changes and the default mixed-seek budget

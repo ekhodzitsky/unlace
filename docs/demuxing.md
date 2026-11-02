@@ -28,6 +28,13 @@ blocks can therefore exceed configured limits. This implementation makes no
 zero-copy source-I/O claim: chunks are copied into one reusable block buffer,
 then emitted as borrowed frame slices.
 
+The private 0.2.1 implementation retains one initialized 8 KiB I/O scratch and
+one 256-entry checked frame-range table per Demuxer, reusing them across polls and
+blocks. Scratch previously lived temporarily in each advance call; its retained
+per-instance cost is now explicit. This adds no heap allocation, changes no
+public byte/work limit and does not retain recording history. No source/API
+migration is required from 0.2.0.
+
 A BlockGroup retains its block until the group ends, so ReferenceBlock,
 BlockDuration and signed DiscardPadding appearing after Block cannot be lost.
 Whole-block signed padding is available on every laced frame. A separate

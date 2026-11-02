@@ -1409,3 +1409,51 @@ fn printable_ascii_endpoints_and_post_terminator_bytes_preserve_string_semantics
         );
     }
 }
+
+#[test]
+fn large_laces_empty_frames_and_unselected_blocks_remain_distinct_across_pauses() {
+    let mut tracks = track(1, false, &[]);
+    tracks.extend(track(2, true, &number(0x23e383, 20_000_000)));
+    let mut cluster = number(0xe7, 0);
+    let mut many = vec![255];
+    for index in 0..256 {
+        many.extend([index as u8, 255 - index as u8]);
+    }
+    cluster.extend(element(0xa3, &block(2, 0, 0x84, &many)));
+    // An opaque-to-selection block fills and crosses scratch-buffer boundaries.
+    cluster.extend(element(0xa3, &block(1, 5500, 0x80, &[0xaa; 16385])));
+    cluster.extend(element(0xa3, &block(2, 6000, 0x80, &[])));
+    // Two Xiph-laced frames: first empty, second two distinct bytes.
+    cluster.extend(element(0xa3, &block(2, 6050, 0x82, &[1, 0, 0x31, 0x32])));
+    cluster.extend(element(0xa3, &block(2, 6100, 0x80, &[0x42])));
+    let data = document(&tracks, &element(CLUSTER, &cluster), &[], &[], false);
+    let expected = drain(&mut reader(&data)).unwrap();
+    assert_eq!(expected.0.len(), 260);
+    for (index, packet) in expected.0[..256].iter().enumerate() {
+        assert_eq!(packet.data, [index as u8, 255 - index as u8]);
+        assert_eq!((packet.index, packet.count), (index as u16, 256));
+        assert_eq!(packet.timestamp, Some(index as i128 * 20_000_000));
+    }
+    assert_eq!(expected.0[256].data, b"");
+    assert_eq!(expected.0[257].data, b"");
+    assert_eq!(expected.0[258].data, b"12");
+    assert_eq!(expected.0[259].data, b"B");
+    for chunk in [1, 17, 8192] {
+        let mut input = Demuxer::new(
+            source(&data, chunk),
+            AudioSelection::First,
+            DemuxLimits::default(),
+        )
+        .unwrap();
+        assert_eq!(drain(&mut input).unwrap(), expected);
+    }
+    for position in [0, 50, 500, 1024, 8191, 8192, 8193, data.len() - 1] {
+        for kind in [io::ErrorKind::WouldBlock, io::ErrorKind::Interrupted] {
+            let mut input = source(&data, 1);
+            input.fail = Some((position, kind));
+            let mut demux =
+                Demuxer::new(input, AudioSelection::First, DemuxLimits::default()).unwrap();
+            assert_eq!(drain(&mut demux).unwrap(), expected);
+        }
+    }
+}
