@@ -214,3 +214,11 @@ inputs retain their qualified packet fields, and all 14 writer outputs reproduce
 their old SHA-256. A final-source campaign completes 2,000 mutations plus 156 seed
 replays without a finding. Writer coverage-guided mutation and broader production
 qualification remain explicit gaps; passing these checks is not release approval.
+
+The [0.2.0 performance refresh](performance-0.2.md) verifies 952 time/RSS and
+210 allocation trials with pinned unchanged counterpart executables. Strict
+metadata, seek windows and separately admitted payload-only consumers retain
+their own equivalence gates. An additional common-cache experiment removes a
+large standard-BufReader reread effect before interpreting Rust performance.
+Neither low allocations nor passing correctness tests imply speed leadership or
+production readiness. Raw records remain local and historical timings unchanged.

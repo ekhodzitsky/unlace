@@ -87,9 +87,11 @@ completeness; see the [writing contract](docs/writing.md).
 
 [The comparison](docs/comparison.md) records further competitors, primary
 sources and the mechanisms evaluated. The pinned
-[selected-audio comparison](docs/matched-comparison.md) reports exact-field gates,
-time, RSS, allocations and fresh-handle seek costs with retained unfavorable
-results. It establishes no overall speed or compatibility ranking.
+[0.2.0 performance comparison](docs/performance-0.2.md) reports strict metadata
+and separate payload-only jobs, time, RSS, allocations and fresh-handle seek costs.
+It includes common-cache Rust comparisons and retains unfavorable results; it
+establishes no overall speed or compatibility ranking. The
+[historical report](docs/matched-comparison.md) remains available with its exact pins.
 
 ## Evidence and limits
 

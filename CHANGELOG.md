@@ -4,7 +4,10 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
-No changes yet.
+- Refresh performance comparisons for audited 0.2.0: 952 time/RSS and 210
+  separate allocation trials, strict metadata and payload-only Rust admission,
+  a common seek-aware input cache, and synthetic writer layout cost. Preserve
+  adapter-induced overreads, slower long-file iteration and all trial ranges.
 
 ## 0.2.0 - 2026-11-02 (unpublished source milestone)
 
