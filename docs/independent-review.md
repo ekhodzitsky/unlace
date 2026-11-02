@@ -124,3 +124,31 @@ preparation/conditioning wall cost correctly and separates 128 MiB reference
 from 1 GiB fresh-matrix caps. It explicitly limits reuse to the original live
 provider, without disk persistence, independent file reopening or general
 production/network latency approval. No tracked files were edited by the reviewer.
+
+
+## Bounded concurrent consumer on frozen 0.2.4
+
+The same authorized reviewer inspected reservation/publication, original-provider
+ownership, active leases, closing capacity, cancellation and lock order in the
+local consumer. It identified a driver-only partial-dispatch cleanup gap. A
+retained local reproduction showed two detached barrier waiters and their
+descriptors. The revised abortable rendezvous and RAII worker group join every handle before draining providers;
+five injected orchestration failures return thread and descriptor baselines.
+No library defect or tracked source change was required.
+
+Four isolated mutants are rejected: source capacity bypass, independent global
+request-cap bypass, early closing-capacity release and leaked File with false
+cleanup gauges. A keyframe-only packet mutant preserves the legacy digest but
+fails an independent sequential full-field fingerprint. These controls establish
+specific oracle sensitivity, not exhaustive concurrency or allocator proof.
+Blocking synchronous provider methods still require external supervision.
+The [consumer report](consumer-pilot-0.2.4.md) retains those limitations, explicit
+Busy outcomes, preparation cost and the narrower local-profile decision.
+
+Final evidence review passes 60 aggregate, table, pin and gate checks and verifies
+all 7,168 main-cohort outcomes individually. It confirms the 3,964 matching
+successes, 3,204 explicit refusals, request/preparation limits, joins and descriptor
+cleanup. Separate peak-RSS probes are not pooled into that cohort. Two prose
+corrections distinguish dispatch-inclusive first-packet from consume-only
+completion clocks and attribute the driver reproduction accurately. No further
+required change remains from this scoped review.

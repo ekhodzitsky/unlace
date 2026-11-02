@@ -3,7 +3,9 @@
 Assessment: 2026-11-02, private unpublished source, Linux x86_64, Rust 1.89.0.
 The preserved source baseline is 0.2.3 at `5d2c136`. MIT and disabled publication
 remain unchanged. This evaluation qualifies a local reference profile, not an
-actual application rollout or general production readiness.
+actual application rollout or general production readiness. A subsequent
+[bounded concurrent consumer pilot](consumer-pilot-0.2.4.md) exercises the
+unchanged source under explicit lifecycle, load and cleanup limits.
 
 ## Decision and scope
 

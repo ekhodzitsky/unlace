@@ -12,7 +12,9 @@ The [0.2.3 reuse evaluation](seek-cache-0.2.3.md) adds bounded verified fallback
 summaries, memory/failure tradeoffs and fresh paired measurements.
 The [0.2.4 prepared-source evaluation](prepared-sessions-0.2.4.md) adds source-
 bound exclusive sessions and separately measures setup, consumer opening and
-previously unconsumed packet windows.
+previously unconsumed packet windows. The subsequent [bounded concurrent consumer
+pilot](consumer-pilot-0.2.4.md) qualifies lifecycle, refusal, cleanup and packet
+fidelity under a fixed local prepared profile without changing library source.
 
 **Public experimental release: technical evidence and scope are documented;
 distribution prerequisites remain. Production: no general production approval.**
@@ -22,8 +24,11 @@ first-use misses still visible. The 0.2.4 prepared-local reference profile passe
 250 ms on all 112 measured session windows, including advisory-evicted data and
 provider-cache resets at previously unconsumed positions. It retains one original
 provider continuously, full explicit preparation, fixed selection and exclusive
-consumer sessions. It is a candidate for a controlled consumer pilot adopting
-those conditions, not a completed application rollout.
+consumer sessions. The subsequent bounded local consumer pilot completes
+7,168 attempts: 3,964 admitted windows match full-field goldens and all request deadlines, with
+3,204 explicit Busy refusals under the zero-queue policy. Source/active limits,
+race/fault controls and shutdown cleanup pass. This is a completed local pilot
+with a scoped go for its prepared profile, not a deployed application rollout.
 
 All fourteen advisory-evicted 0.2.4 first-from-construction observations still
 miss 250 ms. Full preparation medians are about 5.8 seconds for track 2 and
@@ -72,6 +77,7 @@ the license choice.
 | Resources | Explicit metadata/block/index/depth and per-operation budgets, fallible storage, no lifetime media/result retention in the reader/live writer. | Provider latency, honest immutable revisions, external buffering, allocator internals and application result retention remain consumer contracts. |
 | Performance | 1,484 paired time/RSS and 324 allocation trials, strict/payload gates and common-cache/natural/large checks. Warm strict six-hour median is 29.9% lower than preserved 0.2.0. | Other readers remain faster on many jobs; small advisory-evicted cases can regress and large strict ranges overlap. One host, uncontrolled desktop/frequency effects and no application-specific acceptance target. The reader retains 8 KiB extra instance storage from 0.2.1. The 0.2.2 report adds 364 matched seek trials and allocation controls. The 0.2.3 report adds 364 fresh-handle trials, 78 allocation and 56 large repeated processes. Reuse removes prefix I/O; first use can be slower, and several competitors remain faster. Entries grow by 64 bytes on x86_64, up to 4 MiB extra nominal default catalogue storage plus capacity/allocator overhead, even for chosen-cue-only readers; preparation allocations can fail earlier. Prepared ownership adds no index/media copy; its 0.2.4 reference explicitly compares an already-retained 0.2.3 reader, and observed allocations match. |
 | Reference consumer | First cohort 39 successful trials and three refusals; supervised cohort 38 successful, three refusals and one 521.320 ms first-active miss. Other observed RSS/wall ceilings pass. The 0.2.2 fixed follow-up remains 41/42 with a 439.164 ms miss. The new fixed 0.2.3 cohort passes 42/42; all fourteen advisory-evicted first-use observations still miss 250 ms. Same-position repeat medians are around 0.26 ms, not arbitrary cold-destination or provider guarantees. The new 0.2.4 cohort comprises 84 processes/252 windows: all 112 prepared query windows pass, but all fourteen advisory-evicted prepared first-use observations fail. Cache advice/reset and preparation cost remain explicit. | A completed evaluation with failed criteria, simulated local providers and a stated digest subset. No actual application rollout, network cache SLA or universal deadline approval. |
+| Concurrent consumer | [28-process bounded local pilot](consumer-pilot-0.2.4.md): 3,964 successful windows, 3,204 Busy refusals, zero admitted deadline or fidelity failures; independent FD census, worker joins and scoped memory/fault/mutation controls pass. | Go only for that fixed prepared local hash consumer. The 44.7% rejection rate requires explicit caller policy; preparation and provider blocking remain outside the 250 ms prepared-request clock. No real application/SLA, network or universal cancellation approval. |
 | Interoperability | Pinned independent reader and scoped decoder agreement, current packet/writer replay after fixes. | Explicit CRC/transformation/metadata subset; zero-default Opus/browser interpretation and ordinary FFmpeg laced-padding playback disagreement remain visible. |
 
 A small supported format subset can be production-appropriate for a defined
@@ -92,8 +98,9 @@ fixture-specific call-budget refusal is resolved by 0.2.2 without increasing lim
    process. Name a monitored public reporting contact and obtain explicit
    publication approval. The owner-selected MIT license is already recorded.
 2. Choose the actual production consumer/input/platform/provider and acceptance
-   budgets. A controlled prepared-source pilot can adopt the qualified 0.2.4
-   lifetime/preparation profile explicitly. Unknown-file first-use misses remain
+   budgets. Use the completed bounded local pilot as a baseline and explicitly
+   qualify the actual application against the 0.2.4 lifetime/preparation contract.
+   Unknown-file first-use misses remain
    unresolved; do not silently exclude setup or raise limits. Exercise actual cache
    deadlines and storage failure/durability policy; local simulations do not
    establish them.

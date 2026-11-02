@@ -4,6 +4,16 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Qualify the unchanged 0.2.4 library in a bounded concurrent local consumer:
+  28 processes, 7,168 attempts, 3,964 full-field matching successful windows and
+  3,204 explicit Busy refusals, with no admitted deadline misses. Record fixed
+  admission limits, fault/race controls, independent cleanup and memory evidence,
+  preparation cost and blocking-provider failures. Scope the go decision to the
+  prepared local profile; general production and publication remain unapproved.
+- Correct and independently review local pilot worker cleanup after partial
+  startup/dispatch failures. Preserve source/API version 0.2.4 because no library
+  behavior changes; raw operational harnesses and measurements remain local.
+
 ## 0.2.4 - 2026-11-02 (unpublished source milestone)
 
 - Add PreparedSource and exclusive SeekSession APIs retaining the original

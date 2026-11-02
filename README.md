@@ -21,7 +21,9 @@ contained only integer parsing. No public crate has been released.
 readiness is not established. The historical [reference pilot](docs/reference-pilot.md) retains failed large
 ranged criteria. The [0.2.4 follow-up](docs/prepared-sessions-0.2.4.md) qualifies
 previously unconsumed windows on prepared sources while retaining unknown-file
-first-use failures. The
+first-use failures. A [bounded concurrent local pilot](docs/consumer-pilot-0.2.4.md)
+passes admitted-request fidelity, deadlines and cleanup with explicit Busy
+refusals; it gives a scoped prepared-profile go, not general production approval. The
 [experimental scope](docs/experimental-scope.md) states compatibility and reporting
 policy, including the public contact prerequisite. See
 the [release and production assessment](docs/release-readiness.md) for passed gates,
