@@ -9,6 +9,11 @@ These supported subsets have scoped independent qualification; unlace is not a
 general or production-qualified Matroska reader. The earlier 0.1.0 milestone
 contained only integer parsing. No public crate has been released.
 
+**Readiness:** public release is blocked by the missing owner-selected license
+and publication decision; general production readiness is not established. See
+the [release and production assessment](docs/release-readiness.md) for passed gates,
+remaining qualification gaps and the narrower experimental path.
+
 [Design](docs/design.md) · [Competitors](docs/comparison.md) · [Verification](docs/verification.md)
 
 The target is a small container library with bounded memory, exact packet and

@@ -4,6 +4,10 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Record separate public-release and production readiness gates. Local packaging
+  succeeds; license/publication decisions and broader production qualification
+  remain open. No public release, license grant or visibility change is implied.
+
 - Refresh performance comparisons for audited 0.2.0: 952 time/RSS and 210
   separate allocation trials, strict metadata and payload-only Rust admission,
   a common seek-aware input cache, and synthetic writer layout cost. Preserve
