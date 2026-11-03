@@ -22,3 +22,8 @@ out of commits and packages, including public Git history. The owner selected th
 license, recorded in LICENSE and Cargo metadata.
 Repository visibility is now public by separate owner authorization. The license
 choice does not authorize package publication.
+
+As of 2026-11-03, local and remote Git release tags and GitHub Releases are empty.
+The 0.2.4 source version and dated changelog entry do not imply a v0.2.4 tag.
+A metadata or tag audit does not authorize creating a release; keep publication
+separate from source commits and the owner-authorized public repository visibility.

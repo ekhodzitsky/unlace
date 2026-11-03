@@ -42,7 +42,7 @@ Keep remoteOperations and autoCommit false.
 
 Read [local-only rules](agents/local-only-files.md) before creating or staging
 artifacts. Backlog, raw competitor research, benchmarks, operational media,
-credentials and machine-specific state remain local even while this repo is private.
+credentials and machine-specific state remain local regardless of repository visibility.
 
 ## Verification
 

@@ -4,6 +4,13 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Present the public library through practical examples, consumer contracts,
+  source-only setup, scoped comparisons/evidence and explicit readiness limits.
+  Add local source/MIT/Rust/disabled-CI badges tied to authoritative metadata;
+  align Cargo and GitHub descriptions/topics with reading, seeking and writing.
+  Audit absent Git tags/releases without creating one. Source/API version stays
+  0.2.4; no crate or release artifact is published.
+
 - Localize the GigaSTT numeric PCM difference to a 53-byte original Opus packet
   before container trim, mixing and resampling. Direct and consumer Rust calls
   agree; native libopus differs under checked settings. Preserve a separate

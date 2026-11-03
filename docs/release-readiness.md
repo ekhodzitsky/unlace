@@ -1,6 +1,6 @@
 # Release and production readiness
 
-Evidence assessed through 2026-11-02; documentation reviewed 2026-11-03.
+Assessment: 2026-11-03. Dated reports retain their original source and campaign scope.
 Current source: **0.2.4, public repository, unpublished crate**, under MIT. Tests and local
 qualification cover Linux x86_64 with Rust 1.89.0. This page states the current
 decision; dated methods and observations remain in the [evidence index](README.md).

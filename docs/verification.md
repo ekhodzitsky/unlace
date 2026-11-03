@@ -38,7 +38,7 @@ cargo run --offline --locked --example stream_ebml
 ```
 
 For file-based audio, continuation, seek, prepared sessions and remux examples,
-use the commands in the [repository README](../README.md#try-the-source) and the
+use the commands in the [repository README](../README.md#examples) and the
 corresponding [contracts](README.md#current-contracts). A file-based example
 requires a suitable local input and may refuse unsupported structure or resource
 limits. A successful window is not evidence of a fully validated source; a
@@ -75,3 +75,20 @@ Windows/macOS/ARM parity, arbitrary allocation-failure recovery, bounded blockin
 provider calls or a deployed application's SLA. The [release assessment](release-readiness.md)
 is the authority for current readiness. The [historical verification notes](history/verification-milestones.md)
 preserve earlier suite counts and unfinished-work statements through 0.2.1.
+
+## Badge sources
+
+The README uses local static SVG badges, with no external status-image service.
+They describe source metadata and verification policy, not hosted CI results.
+
+| Badge | Authoritative source |
+| --- | --- |
+| Source 0.2.4 | [Cargo.toml](../Cargo.toml) package.version and [Cargo.lock](../Cargo.lock); this is not a published crate or Git release tag. |
+| MIT | Cargo license metadata and the actual [LICENSE](../LICENSE) notice. |
+| Rust 1.89.0 | Cargo rust-version 1.89 and [rust-toolchain.toml](../rust-toolchain.toml) channel 1.89.0; minimum-version checks run locally. |
+| CI disabled | GitHub Actions repository setting verified disabled on 2026-11-03, with no tracked hosted workflow; the required local checks above remain in use. |
+
+Update badges when their authoritative values change. Do not add downloads,
+crates.io, docs.rs, coverage or release badges without corresponding published
+artifacts and evidence. The [version policy](versioning.md) distinguishes source
+milestones, tags and package publication.
