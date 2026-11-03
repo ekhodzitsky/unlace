@@ -116,3 +116,9 @@ The badge shows the latest workflow status for main and may refer to an earlier
 commit until another run completes. Check the run's commit when assessing a
 particular revision. Passing source checks does not qualify application latency,
 codec output, other platforms or general production use.
+
+On 2026-11-03, [manual run 41645399937](https://github.com/ekhodzitsky/unlace/actions/runs/41645399937)
+passed all six required checks and local package verification for commit
+`3faed583d4339ea429a74c92fe66167bf5e3551a` on Ubuntu 24.04 / Rust 1.89.0.
+This records that exact revision; subsequent documentation commits are not
+implicitly included in the result.
