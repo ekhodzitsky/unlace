@@ -1,6 +1,6 @@
 # Documentation
 
-Current source: **0.2.4**, private and unpublished. The repository README is the
+Current source: **0.2.4**, public repository, unpublished crate. The repository README is the
 quick start; this index is the map for contracts, checks and retained evidence.
 Dated reports describe their pinned source and campaign. Their historical test
 counts, failures and unfinished-work statements are not current task status.

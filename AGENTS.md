@@ -5,7 +5,7 @@ agent-dev-kb: 0.10.1
 Core source: agent-dev-kb revision cb223cb, version 0.10.1. The stamp certifies
 core instruction content only, not optional MCP setup.
 
-Private repository. Never change visibility, publish a crate, or upload release
+Public source repository. Never change visibility, publish a crate, or upload release
 artifacts without explicit owner authorization. Keep all code and project records
 in English. Use plain wording without decorative arrows or symbolic shorthand.
 

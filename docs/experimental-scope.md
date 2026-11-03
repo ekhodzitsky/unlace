@@ -1,8 +1,8 @@
 # Experimental distribution scope
 
-This document defines the intended experimental source scope. The repository
-remains private, Cargo publishing is disabled, and no public release, tag or
-artifact upload is authorized by this policy. MIT is recorded in LICENSE.
+This document defines the experimental public source scope. The owner authorized
+public repository visibility on 2026-11-03. Cargo publishing remains disabled;
+no crate release, tag or artifact upload is authorized. MIT is recorded in LICENSE.
 
 ## Supported source scope
 
@@ -40,9 +40,9 @@ Issues are not an alternate project tracker.
 Potential security issues should use an existing private owner channel, with
 reproduction details and affected versions. Do not disclose sensitive inputs in
 public reports. No monitored public security address, response deadline or
-production support SLA is established by this document. Before public
-publication, the owner must name a monitored reporting contact and communicate
-its scope. This remains an explicit distribution prerequisite.
+production support SLA is established by this document. Before a packaged release, the owner must name a monitored reporting contact
+and communicate its scope. Public source visibility alone does not establish
+that contact or a support commitment.
 
 ## Production boundary
 

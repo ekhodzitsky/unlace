@@ -2,7 +2,8 @@
 
 Unlace is a pure Rust library for bounded WebM and Matroska container reading
 and writing, with no third-party Cargo dependencies and no unsafe code.
-The current source milestone is **0.2.4**, private and unpublished, under [MIT](LICENSE).
+The current source milestone is **0.2.4**, available as public source under [MIT](LICENSE).
+No crate or release artifact has been published.
 Rust **1.89.0** is required.
 
 The library preserves encoded audio packets and their timing/trim metadata.
@@ -16,7 +17,7 @@ can be refused explicitly.
 passes its admitted-request criteria with explicit Busy refusals. General
 production readiness is not established; unknown-file first-use latency still
 misses the reference criterion. See the [current release assessment](docs/release-readiness.md)
-for the qualified scope and remaining distribution prerequisites.
+for the qualified scope and remaining crate-release prerequisites.
 
 ## Try the source
 

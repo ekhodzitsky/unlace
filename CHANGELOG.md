@@ -4,6 +4,11 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Make the source repository public under explicit owner authorization after a
+  reachable-history audit. Keep Cargo publication and hosted Actions disabled;
+  no crate, tag or release artifact is published. Distinguish public source from
+  packaged release and production approval. Source version remains 0.2.4.
+
 - Reorganize documentation into current contracts, verification/release guidance
   and indexed historical evidence. Shorten the README, preserve original seek
   and verification records in explicitly historical pages, and correct stale
