@@ -3,7 +3,9 @@
 The owner authorized public source visibility on 2026-11-03. Cargo publish
 remains disabled. Creating a source commit is not permission to publish a crate,
 change visibility again or upload release binaries.
-No GitHub Actions should be configured or run until explicitly requested.
+The owner authorized manual GitHub Actions source verification on 2026-11-03.
+The workflow is manually dispatched and does not publish packages or artifacts.
+Automatic and scheduled triggers require a separate owner decision.
 
 Use SemVer. Before 1.0, incompatible public API changes increment the minor
 version; compatible changes increment the patch version when a source milestone

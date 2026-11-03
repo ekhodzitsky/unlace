@@ -34,8 +34,9 @@ an existing private channel. Include the source commit, toolchain/platform,
 limits, provider/revision behavior, expected and observed result, and a small
 original reproducer where possible. Do not send credentials or private media
 unless the owner has arranged a suitable private exchange. Accepted work is
-tracked in the project's local Backlog workflow; hosted workflows and GitHub
-Issues are not an alternate project tracker.
+tracked in the project's local Backlog workflow; GitHub Issues are not an
+alternate project tracker. The owner-authorized manual hosted workflow only
+verifies source and does not publish packages or release artifacts.
 
 Potential security issues should use an existing private owner channel, with
 reproduction details and affected versions. Do not disclose sensitive inputs in

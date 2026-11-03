@@ -14,7 +14,7 @@ is not established. Crate-release prerequisites remain.**
 | --- | --- |
 | License | MIT is selected and recorded in LICENSE and Cargo metadata. |
 | Source coherence | Cargo.toml and Cargo.lock agree on 0.2.4; contracts, examples and changelog describe the supported subset. [Version policy](versioning.md). |
-| Local verification and packaging | Required Rust 1.89 checks, dependency audit and local package construction/verification pass. [Verification procedure](verification.md). No hosted workflow is required or authorized. |
+| Local verification and packaging | Required Rust 1.89 checks, dependency audit and local package construction/verification pass. [Verification procedure](verification.md). Manual hosted source verification is now owner-authorized; its result is recorded in the verification guide. |
 | Supported scope and compatibility | The [experimental policy](experimental-scope.md) defines the supported subset, pre-1.0 compatibility and private reporting route. |
 | Public reporting contact | Not yet established. The owner must name a monitored contact before a packaged release; public source access is not a support SLA. |
 | Source visibility | Owner authorized public repository visibility on 2026-11-03 after a reachable-history audit. |

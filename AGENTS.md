@@ -19,7 +19,9 @@ Never silently relax parsing, trim, timestamp or completeness guarantees.
 
 ## Development
 
-Use main. Run checks locally; do not create or dispatch GitHub Actions.
+Use main. Run checks locally. The owner authorized manual GitHub Actions source
+verification on 2026-11-03. Keep hosted checks manually dispatched; no package
+publication, release uploads or scheduled/automatic triggers are authorized.
 Source commits and pushes within the authorized project setup are allowed;
 future changes follow the owner instruction for that task. Use Conventional Commits.
 Keep Cargo versions, changelog, examples and actual API consistent. Add a failing

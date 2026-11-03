@@ -4,6 +4,11 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Add owner-authorized manual GitHub Actions verification of the Rust 1.89 source
+  checks and local package construction, with a live workflow badge. No automatic
+  triggers, package publication or release artifact uploads are configured.
+  Source/API version remains 0.2.4.
+
 - Present the public library through practical examples, consumer contracts,
   source-only setup, scoped comparisons/evidence and explicit readiness limits.
   Add local source/MIT/Rust/disabled-CI badges tied to authoritative metadata;

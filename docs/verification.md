@@ -78,17 +78,41 @@ preserve earlier suite counts and unfinished-work statements through 0.2.1.
 
 ## Badge sources
 
-The README uses local static SVG badges, with no external status-image service.
-They describe source metadata and verification policy, not hosted CI results.
+The source, license and Rust badges are local static SVGs describing source
+metadata. The CI badge is served by GitHub and links to the actual manual
+workflow status for main; it is not a production-readiness certificate.
 
 | Badge | Authoritative source |
 | --- | --- |
 | Source 0.2.4 | [Cargo.toml](../Cargo.toml) package.version and [Cargo.lock](../Cargo.lock); this is not a published crate or Git release tag. |
 | MIT | Cargo license metadata and the actual [LICENSE](../LICENSE) notice. |
 | Rust 1.89.0 | Cargo rust-version 1.89 and [rust-toolchain.toml](../rust-toolchain.toml) channel 1.89.0; minimum-version checks run locally. |
-| CI disabled | GitHub Actions repository setting verified disabled on 2026-11-03, with no tracked hosted workflow; the required local checks above remain in use. |
+| CI | [GitHub Actions CI workflow](https://github.com/ekhodzitsky/unlace/actions/workflows/ci.yml), authorized by the owner on 2026-11-03 and triggered manually. |
 
 Update badges when their authoritative values change. Do not add downloads,
 crates.io, docs.rs, coverage or release badges without corresponding published
 artifacts and evidence. The [version policy](versioning.md) distinguishes source
 milestones, tags and package publication.
+
+## Manual hosted verification
+
+The owner authorized CI on 2026-11-03, replacing the previous disabled-Actions
+policy. [ci.yml](../.github/workflows/ci.yml) runs on Ubuntu 24.04 with Rust
+1.89.0, the same six required checks above and local source-package verification.
+The job has read-only repository contents permission, a 15-minute timeout and a
+commit-pinned checkout action without persisted credentials. Toolchain setup
+needs network access; Cargo verification remains offline and locked. No cache,
+private corpus, model, secret or release artifact is uploaded.
+
+Only workflow_dispatch is configured. To request a check of main:
+
+```sh
+gh workflow run ci.yml --ref main
+```
+
+The workflow must be on the default branch for manual dispatch, as described in
+[GitHub's manual-run guide](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+The badge shows the latest workflow status for main and may refer to an earlier
+commit until another run completes. Check the run's commit when assessing a
+particular revision. Passing source checks does not qualify application latency,
+codec output, other platforms or general production use.

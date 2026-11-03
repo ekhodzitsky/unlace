@@ -4,7 +4,7 @@ Bounded WebM and Matroska containers in pure Rust.
 
 [![Source version: 0.2.4](docs/assets/version.svg)](Cargo.toml)
 [![License: MIT](docs/assets/license.svg)](LICENSE)
-[![CI: disabled](docs/assets/ci.svg)](docs/verification.md#badge-sources)
+[![CI](https://github.com/ekhodzitsky/unlace/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ekhodzitsky/unlace/actions/workflows/ci.yml)
 [![Minimum Rust: 1.89.0](docs/assets/msrv.svg)](rust-toolchain.toml)
 
 Read encoded audio packets with their original bytes, timestamps and trim
