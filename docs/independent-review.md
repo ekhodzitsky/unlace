@@ -167,3 +167,13 @@ outputs. The [integration report](gigastt-integration.md) retains the failed
 numeric PCM gate, two admission differences and the limited 14-word natural
 recognition smoke check. No production library defect or transparent-replacement
 approval follows. No tracked files were edited by the reviewer.
+
+
+The packet-level follow-up independently reproduces the original 53-byte
+single-frame case before container transforms. Forty-five additional checks
+and native parsing cover 348 packet observations and 452 frame slices; six
+raw prefixes match the actual earlier consumer. Measured and explicit native
+settings agree on every vector. A separate direct-decoder VBR cursor
+counterexample is distinguished from the single-frame numeric difference.
+The [follow-up](gigastt-integration.md#packet-level-localization) establishes no
+normative codec/quality verdict and changes no production code.

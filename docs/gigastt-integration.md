@@ -125,8 +125,10 @@ normalized RMSE at most 0.0001 and maximum absolute sample error at most 0.001.
 **Zero of 14 shared cases pass that numeric gate.** Normalized RMSE ranges from
 0.000228 to 0.491420. The thresholds are not an Opus conformance definition, a
 perceptual quality measure or proof of a decoder bug. The exact packet/raw-PCM
-checks locate the comparison beyond a changed demux payload; they do not explain
-the remaining independent-decoder differences. No sample-fidelity approval is claimed.
+checks locate the comparison beyond a changed demux payload. The later
+[packet-level follow-up](#packet-level-localization) reproduces a difference at
+the codec boundary before container transforms; no sample-fidelity or codec
+conformance approval is claimed.
 
 Initial numerical tooling used FFmpeg's automatic native decoder and default
 stereo remix. Those observations are preserved as non-equivalent work. The
@@ -185,6 +187,74 @@ peak memory. These are separate from decode-only measurements.
 This sequential pilot does not construct a seek index. Its passing first-PCM
 criterion does not erase the earlier failed 250 ms cold prepared-seek setup in
 [the prepared-session report](prepared-sessions-0.2.4.md).
+
+## Packet-level localization
+
+A follow-up on the unchanged source isolates the numerical difference without
+WebM parsing in the decode process, trim, gain application, channel mixing,
+resampling or inference. The minimal case is the original first packet of the
+own Russian synthetic source, not a byte-truncated or concealed substitute:
+
+| Property | Observed value |
+| --- | --- |
+| Encoded packet | 53 bytes; SHA-256 `155969977f128c44f89b1aa3e51f01fb38da4f30c95214617fb844c68a2e9647` |
+| TOC | 0x78, configuration 15, mono, code 0: one 20 ms hybrid frame |
+| Output | Both return 960 mono samples at 48 kHz. |
+| First f32 bit difference | Raw frame 0; bit differences alone are not a conformance failure. |
+| First absolute error above 0.001 | Raw frame 761; Rust 0.000709780, native -0.000592762. |
+| Maximum absolute error | 0.00731208 over this packet; normalized RMSE 0.947755. |
+
+The copied GigaSTT decode function, observed unclamped frame calls, direct
+opus-rs call and larger-capacity direct call produce identical Rust PCM. Native
+libopus 1.6.1 float calls agree at exact and 5,760-frame capacities. Five fresh
+Rust processes with fresh native decoder states reproduce the same output hashes;
+an independent reviewer also reproduces the case. Prefix reduction from 64
+packets to one leaves the first output unchanged. This is minimal in packet
+count, not a claim of globally minimal payload bytes. The absolute difference
+persists beyond the original source's 312-frame pre-skip; no crop is applied
+inside these decoder calls.
+
+This native library is pinned separately from the earlier FFmpeg-linked decoder.
+Its gain and complexity getters report zero, with 48 kHz output. The observed
+phase-inversion-disabled default is one for mono and zero for stereo. Explicit
+zero gain/complexity/phase settings preserve all measured outputs, excluding
+those settings as the cause for these vectors. Float and native i16 calls use
+separate decoder states; i16 output is normalized by 32,768 as an additional
+control, not substituted for float output. Native API capacity, returned frame
+counts and interleaved channels follow the [decoder API](https://opus-codec.org/docs/opus_api-1.5/group__opus__decoder.html).
+
+Six source prefixes contain 346 original packets; two constructed three-frame
+controls bring the total to 348 packet observations and 452 frame slices.
+Independent native packet parsing matches every copied consumer frame boundary.
+Native original-packet versus code-0-frame output and capacity variants are
+bit-identical for all 348. Unclamped returns match expected frame counts, with
+no unexpected result hidden by GigaSTT's min operation. The six reconstructed
+raw PCM prefixes also match the actual earlier consumer artifacts exactly.
+One natural-speech prefix has small float-bit differences but no numerical
+threshold failure across its 64 packets; the finding is not universal divergence.
+
+A separate three-frame VBR control exposes a direct opus-rs 0.1.34 parsing
+counterexample. [RFC 6716 section 3.2.5](https://www.rfc-editor.org/rfc/rfc6716.html#section-3.2.5)
+places the frame lengths before their payloads. Correct boundaries are 282,
+186 and 186 bytes; the direct decoder's interleaved length/payload cursor instead
+selects 282, 177 and 195. Feeding those wrong slices as code-0 packets reproduces
+its direct output bit for bit. The copied consumer splitter and native parser
+agree on the correct slices. Removing GigaSTT's splitter is therefore not a
+validated remedy, and this distinct VBR issue does not explain the original
+single-frame counterexample.
+
+The local regression returns failure for the unchanged numeric contract;
+its verify-known mode freshly replays the counterexample, reduction and
+calibration controls. Native/Rust silence and identical non-silent PCM are
+positive controls; amplitude, bit, shape and truncated-transport corruptions
+are detected. Raw packets, copied consumer/codec code, native artifacts and
+scripts remain local under the project evidence policy. Decoder versions,
+source, executable, input and helper hashes are checked before and after runs.
+Independent review verifies 45 evidence checks, frame parsing, the minimal
+reproduction and explicit native settings. This identifies a reproducible
+codec-output boundary, not a failing unlace container transform, normative
+codec-conformance verdict, perceptual-quality result or identified internal DSP
+instruction. No production code in unlace, GigaSTT or the codec is changed.
 
 ## Decision and verification
 

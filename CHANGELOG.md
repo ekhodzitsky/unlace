@@ -4,6 +4,13 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Localize the GigaSTT numeric PCM difference to a 53-byte original Opus packet
+  before container trim, mixing and resampling. Direct and consumer Rust calls
+  agree; native libopus differs under checked settings. Preserve a separate
+  direct-decoder VBR framing counterexample and a local repeatable regression.
+  No unlace parser defect, codec-conformance verdict or production code change
+  follows; source/API version remains 0.2.4.
+
 - Complete an isolated GigaSTT WebM/Opus pilot on unchanged unlace 0.2.4:
   14 shared packet/diagnostic PCM matches, 16 exact same-decoder crop controls,
   252 bounded decode processes and 29 model processes. Preserve two consumer
