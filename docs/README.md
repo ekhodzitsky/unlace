@@ -73,6 +73,7 @@ media, logs, credentials and machine state out of tracked source and packages.
 | Report | Disposition |
 | --- | --- |
 | [Original reference pilot](reference-pilot.md) | Retains large ranged refusals/deadline misses and staged-output limits |
+| [GigaSTT integration](gigastt-integration.md) | Actual consumer source/codec/model pilot; no-go for transparent replacement, with explicit admission, trim, PCM and failure differences |
 | [0.2.4 bounded concurrent pilot](consumer-pilot-0.2.4.md) | Scoped go for a prepared local hash consumer with explicit Busy handling; no deployed application approval |
 
 The [accepted product decision](decisions/0001-product-direction.md) preserves

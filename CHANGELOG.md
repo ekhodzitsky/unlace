@@ -4,6 +4,14 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Complete an isolated GigaSTT WebM/Opus pilot on unchanged unlace 0.2.4:
+  14 shared packet/diagnostic PCM matches, 16 exact same-decoder crop controls,
+  252 bounded decode processes and 29 model processes. Preserve two consumer
+  fixture refusals, corrected trim, soft-EOF differences and the failed numeric
+  PCM gate. Three natural clips retain zero errors across 14 reference words;
+  no broad recognition or transparent-replacement production approval follows.
+  Keep consumer dependencies, source copies, models and measurements local.
+
 - Make the source repository public under explicit owner authorization after a
   reachable-history audit. Keep Cargo publication and hosted Actions disabled;
   no crate, tag or release artifact is published. Distinguish public source from

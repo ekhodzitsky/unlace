@@ -152,3 +152,18 @@ cleanup. Separate peak-RSS probes are not pooled into that cohort. Two prose
 corrections distinguish dispatch-inclusive first-packet from consume-only
 completion clocks and attribute the driver reproduction accurately. No further
 required change remains from this scoped review.
+
+
+## GigaSTT integration pilot
+
+The same authorized reviewer checked the frozen actual consumer, existing
+Opus trim/soft-EOF behavior and the isolated adapter. Review found local oracle
+scope gaps for gain, successful native completion, amplitude comparison and
+immutable input/runtime pins; the corrected cohorts preserve the earlier records.
+Four isolated trim tests and a known-passing numeric control with three rejected
+corruptions pass. Final evidence review passes 63 aggregate/table/source/pin
+checks and individually checks all 252 timing rows, including their correctness
+outputs. The [integration report](gigastt-integration.md) retains the failed
+numeric PCM gate, two admission differences and the limited 14-word natural
+recognition smoke check. No production library defect or transparent-replacement
+approval follows. No tracked files were edited by the reviewer.

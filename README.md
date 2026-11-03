@@ -16,7 +16,9 @@ can be refused explicitly.
 **Readiness:** the [bounded local prepared-consumer pilot](docs/consumer-pilot-0.2.4.md)
 passes its admitted-request criteria with explicit Busy refusals. General
 production readiness is not established; unknown-file first-use latency still
-misses the reference criterion. See the [current release assessment](docs/release-readiness.md)
+misses the prepared-seek reference criterion. The [GigaSTT pilot](docs/gigastt-integration.md)
+records a separate sequential consumer evaluation and its remaining integration differences.
+See the [current release assessment](docs/release-readiness.md)
 for the qualified scope and remaining crate-release prerequisites.
 
 ## Try the source

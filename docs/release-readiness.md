@@ -29,9 +29,9 @@ Matroska support. Package-release prerequisites remain separate.
 | Scenario | Evidence and disposition |
 | --- | --- |
 | Prepared local encoded-packet consumer | The [bounded concurrent pilot](consumer-pilot-0.2.4.md) passes: 28 processes, 7,168 attempts, 3,964 full-field matching admitted windows, 3,204 explicit Busy refusals and zero admitted deadline/fidelity failures. Scoped go only for its fixed source/request/resource profile. |
-| Unknown file with first packet within 250 ms | Not met. All fourteen advisory-evicted initial observations in the [prepared-session evaluation](prepared-sessions-0.2.4.md) fail. Full preparation costs seconds and remains visible. |
+| New source requiring fully prepared seek state within 250 ms | Not met. All fourteen advisory-evicted initial observations in the [prepared-session evaluation](prepared-sessions-0.2.4.md) fail. Full preparation costs seconds and remains visible. |
 | Arbitrary provider with hard cancellation deadline | Not qualified. Synchronous provider calls can block; the concurrent pilot retains a cancellation miss and an externally terminated never-returning provider. |
-| Actual production application | The owner selected GigaSTT. Its WebM/Opus integration is being qualified; no deployment or application-wide production approval has been established. |
+| GigaSTT sequential WebM/Opus | [Completed isolated pilot](gigastt-integration.md): shared packets and same-decoder crops pass, 252 decode processes meet limits and three natural clips preserve text. No-go for transparent replacement: admission, trim and truncation semantics differ; the independent numerical PCM gate fails. No deployed service approval. |
 
 The passing local profile retains each original immutable provider, performs
 explicit full preparation before service, fixes selection, admits at most one
@@ -62,7 +62,9 @@ outside the prepared-request timing claim.
 
 ## Before a stronger claim
 
-The next production gate is the GigaSTT integration: qualify the real workload,
+The next production gate is explicit GigaSTT adoption of the [measured trim,
+admission, PCM and failure policies](gigastt-integration.md#decision-and-verification),
+followed by its actual file-window/service integration. Qualify the real workload,
 platform, provider identity/latency contract, admission/retry and shutdown policy,
 resource ceilings and completion/durability requirements. Qualify that integration
 against explicit acceptance criteria, retaining setup cost and refusals. Use the
