@@ -1,7 +1,7 @@
 # Incremental EBML framing
 
-The unreleased `stream` module frames EBML elements over `std::io::Read` without
-requiring `Seek`. It is a reusable structural core. It does not yet select a
+The `stream` module frames EBML elements over `std::io::Read` without
+requiring `Seek`. It is a reusable structural core. It does not select a
 Matroska/WebM schema, validate an EBML document or interpret track/block metadata.
 The executable `stream_ebml` example frames a synthetic EBML header.
 

@@ -1,6 +1,6 @@
 # Individual encoded block parsing
 
-The unreleased `block::parse_block` function splits the complete payload of one
+The `block::parse_block` function splits the complete payload of one
 Matroska Block or SimpleBlock, following [RFC 9559 sections 10.1 through 10.3](https://www.rfc-editor.org/rfc/rfc9559.html#section-10).
 It does not read a WebM file or select an audio track. The caller must first
 obtain exactly one complete finite element payload, enforce the stream's declared

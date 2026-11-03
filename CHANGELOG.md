@@ -4,6 +4,14 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
+- Reorganize documentation into current contracts, verification/release guidance
+  and indexed historical evidence. Shorten the README, preserve original seek
+  and verification records in explicitly historical pages, and correct stale
+  license, milestone and indexed-finalization wording. No library/API change or
+  source-version bump; the current source remains 0.2.4.
+- Remove confirmed local build caches while retaining pinned executables, raw
+  qualification evidence and media. No project history or measurement is removed.
+
 - Qualify the unchanged 0.2.4 library in a bounded concurrent local consumer:
   28 processes, 7,168 attempts, 3,964 full-field matching successful windows and
   3,204 explicit Busy refusals, with no admitted deadline misses. Record fixed

@@ -1,13 +1,13 @@
 # Sequential audio demuxing
 
-The unreleased `demux` module emits original encoded audio packets over `Read`,
+The `demux` module emits original encoded audio packets over `Read`,
 without requiring `Seek`. It integrates the [streaming core](streaming.md) and
 [block parser](blocks.md). This is an early, explicitly bounded subset, with no
 production, universal-conformance or performance claim. Selected packet bytes
-now pass the pinned [producer corpus checks](packet-qualification.md) against
-FFmpeg and Nestegg. Broader timing, trim, hostile-input and performance
-qualification remain unfinished. Ordinary builds/tests need no external tools
-or media.
+pass the pinned [producer corpus checks](packet-qualification.md) against
+FFmpeg and Nestegg. Timing, trim, robustness and performance have separate
+[scoped evidence](README.md#qualification-and-audits); those campaigns do not
+prove arbitrary input coverage. Ordinary builds/tests need no external tools or media.
 
 ## Consumer contract
 

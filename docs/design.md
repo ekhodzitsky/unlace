@@ -31,34 +31,30 @@ interpret them; it does not promise decoded audio simply because packets parsed.
 
 ## Capability boundary
 
-The initial 0.1.0 milestone parses ID/size integers from slices. The private
-0.2.0 source milestone adds
-a schema-driven incremental `Read` framing core; its exact structural scope and
-limits are described in [streaming.md](streaming.md). It does not yet validate
-a complete WebM document. A separate [block parser](blocks.md) splits complete
-Block/SimpleBlock payloads without container-level track or timestamp interpretation.
-ID widths are limited to four bytes and sizes to eight for the intended Matroska/WebM scope. It follows
+The current 0.2.4 source provides allocation-free EBML integer parsing,
+schema-driven framing over Read, standalone Block/SimpleBlock splitting,
+sequential selected-audio demuxing, positional sources, verified seeking and
+source-bound prepared sessions. The [contract index](README.md#current-contracts)
+defines each layer's exact scope. Writing accepts already encoded blocks over
+Write, with checked indexed finalization over Write + Seek. Storage durability
+and atomic publication remain consumer responsibilities.
+
+ID widths are limited to four bytes and size widths to eight for the intended
+Matroska/WebM scope. Integer syntax follows
 [RFC 8794](https://www.rfc-editor.org/rfc/rfc8794.html), including the
 [RFC 9559 correction](https://www.rfc-editor.org/rfc/rfc9559.html#section-4.2)
-that permits ID 0x80. Header-declared maxima, element schema membership, payloads
-and hierarchy are not validated by these integer functions.
+that permits ID 0x80. Integer functions alone do not validate header-declared
+maxima, schema membership, hierarchy or payloads.
 
-The intended read contract covers tracks, clusters, SimpleBlock/BlockGroup,
-all lacing modes, packet timestamps, CodecPrivate, CodecDelay, SeekPreRoll and
-DiscardPadding. General Matroska extensions must be supported explicitly or
-rejected/skipped according to a documented rule. Writing containers is a separate
-capability and must distinguish live output from durably finalized indexed files.
-Sequential audio events now integrate the core and block parser under the
-explicit [demuxing subset](demuxing.md). Broader end-to-end qualification
-remains scoped; the target contracts are broader
-than current verified capability.
+Audio contracts cover tracks, Clusters, SimpleBlock/BlockGroup, all lacing modes,
+packet timestamps, CodecPrivate, CodecDelay, SeekPreRoll and DiscardPadding.
+General Matroska extensions require explicit support or a documented refusal/
+skipping rule. Skipped media and decoder state remain unverified.
 
-The [positional source layer](sources.md) is separate from sequential `Read`:
-providers supply a known complete length and immutable revision, reads have
-explicit per-operation work budgets, and read extents do not imply validation.
-The separate [seek reader](seeking.md) validates structural destinations, reports
-actual starts/preroll/fallback and scopes completion to the suffix it reads.
-Skipped media and decoder state remain unverified.
+Positional providers supply a known complete length and immutable revision.
+Per-operation read budgets and required extents do not imply whole-source
+validation. Prepared sessions retain the original provider and complete fallback
+verification, with no independent-provider import or persistent disk index.
 
 ## Evidence for decisions
 

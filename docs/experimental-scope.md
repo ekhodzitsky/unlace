@@ -24,11 +24,10 @@ An experimental release must preserve these limitations in its description.
 
 ## Compatibility and reports
 
-Before 1.0, incompatible public API changes require a minor version increment;
-compatible source milestones use patch increments. There is no stable 1.x API
-or long-term support promise. Notable changes and migration requirements belong
-in CHANGELOG.md and the affected contracts. A patch version does not establish
-production or performance approval.
+The [version policy](versioning.md) defines pre-1.0 SemVer and source milestones.
+There is no stable 1.x API or long-term support promise. Notable changes and
+migration requirements belong in CHANGELOG.md and the affected contracts. A
+patch version does not establish production or performance approval.
 
 Current collaborators report problems directly to the repository owner through
 an existing private channel. Include the source commit, toolchain/platform,
@@ -55,11 +54,11 @@ observations remain visible in the [readiness assessment](release-readiness.md).
 A consumer must qualify its actual workload and failure policy. Neither MIT nor
 a successful package construction substitutes for that evaluation.
 
-
 Prepared-session qualification is limited to a continuously owned immutable
 provider, explicit complete preparation, fixed selection and exclusive consumers.
 It is an in-process lifecycle, not disk-persistent verification or independent
 file reopening. The [0.2.4 reference evaluation](prepared-sessions-0.2.4.md) passes
 its measured prepared-opening criterion on varied windows after advisory cache
-resets; first-new-source cost remains seconds. A consumer pilot must explicitly
-adopt this preparation/lifetime policy and qualify its own provider and workload.
+resets; first-new-source cost remains seconds. The [bounded local consumer pilot](consumer-pilot-0.2.4.md) adopts that policy
+and passes its declared profile. Actual applications must qualify their own
+provider, workload, admission and shutdown requirements.

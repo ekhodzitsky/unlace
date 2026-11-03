@@ -1,6 +1,6 @@
 # Encoded WebM writing
 
-The unreleased `write` module writes already encoded Opus/Vorbis audio and
+The `write` module writes already encoded Opus/Vorbis audio and
 VP8/VP9 video. It performs no encoding, decoding, resampling, sample trimming or
 codec random-access detection. It is a container writer with an explicit subset,
 not a general Matroska remuxer. The
