@@ -1,8 +1,9 @@
 # Experimental distribution scope
 
 This document defines the experimental public source scope. The owner authorized
-public repository visibility on 2026-11-03. Cargo publishing remains disabled;
-no crate release, tag or artifact upload is authorized. MIT is recorded in LICENSE.
+public repository visibility on 2026-11-03 and experimental crates.io publication
+of 0.2.4 on 2026-11-04. MIT is recorded in LICENSE. Other versions, Git tags and
+release-binary uploads require separate owner authorization.
 
 ## Supported source scope
 
@@ -41,9 +42,11 @@ verifies source and does not publish packages or release artifacts.
 Potential security issues should use an existing private owner channel, with
 reproduction details and affected versions. Do not disclose sensitive inputs in
 public reports. No monitored public security address, response deadline or
-production support SLA is established by this document. Before a packaged release, the owner must name a monitored reporting contact
-and communicate its scope. Public source visibility alone does not establish
-that contact or a support commitment.
+production support SLA is established by this document. Experimental package
+distribution retains this reporting limitation. A
+monitored public reporting contact remains necessary before a supported
+production release. Package availability does not establish that contact or a
+support commitment.
 
 ## Production boundary
 

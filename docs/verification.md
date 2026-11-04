@@ -84,7 +84,7 @@ workflow status for main; it is not a production-readiness certificate.
 
 | Badge | Authoritative source |
 | --- | --- |
-| Source 0.2.4 | [Cargo.toml](../Cargo.toml) package.version and [Cargo.lock](../Cargo.lock); this is not a published crate or Git release tag. |
+| Source 0.2.4 | [Cargo.toml](../Cargo.toml) package.version and [Cargo.lock](../Cargo.lock); this badge identifies the source version; registry availability and Git release tags are separate facts. |
 | MIT | Cargo license metadata and the actual [LICENSE](../LICENSE) notice. |
 | Rust 1.89.0 | Cargo rust-version 1.89 and [rust-toolchain.toml](../rust-toolchain.toml) channel 1.89.0; minimum-version checks run locally. |
 | CI | [GitHub Actions CI workflow](https://github.com/ekhodzitsky/unlace/actions/workflows/ci.yml), authorized by the owner on 2026-11-03 and triggered manually. |

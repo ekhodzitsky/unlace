@@ -20,8 +20,10 @@ Never silently relax parsing, trim, timestamp or completeness guarantees.
 ## Development
 
 Use main. Run checks locally. The owner authorized manual GitHub Actions source
-verification on 2026-11-03. Keep hosted checks manually dispatched; no package
-publication, release uploads or scheduled/automatic triggers are authorized.
+verification on 2026-11-03. Keep hosted checks manually dispatched; release
+uploads and scheduled/automatic triggers are not authorized. The owner authorized
+the first experimental crates.io publication of 0.2.4 on 2026-11-04. Future
+package versions and other releases require their own owner authorization.
 Source commits and pushes within the authorized project setup are allowed;
 future changes follow the owner instruction for that task. Use Conventional Commits.
 Keep Cargo versions, changelog, examples and actual API consistent. Add a failing

@@ -1,12 +1,12 @@
 # Release and production readiness
 
-Assessment: 2026-11-03. Dated reports retain their original source and campaign scope.
-Current source: **0.2.4, public repository, unpublished crate**, under MIT. Tests and local
+Assessment: 2026-11-04. Dated reports retain their original source and campaign scope.
+Current source: **0.2.4, public repository, experimental package publication authorized**, under MIT. Tests and local
 qualification cover Linux x86_64 with Rust 1.89.0. This page states the current
 decision; dated methods and observations remain in the [evidence index](README.md).
 
 **Scoped go for the fixed prepared local consumer. General production readiness
-is not established. Crate-release prerequisites remain.**
+is not established. Experimental package publication is owner-authorized.**
 
 ## Public distribution
 
@@ -16,13 +16,13 @@ is not established. Crate-release prerequisites remain.**
 | Source coherence | Cargo.toml and Cargo.lock agree on 0.2.4; contracts, examples and changelog describe the supported subset. [Version policy](versioning.md). |
 | Local verification and packaging | Required Rust 1.89 checks, dependency audit and local package construction/verification pass. [Verification procedure](verification.md). Owner-authorized manual hosted source verification also passed for `3faed58`; the exact run and scope are recorded in the verification guide. |
 | Supported scope and compatibility | The [experimental policy](experimental-scope.md) defines the supported subset, pre-1.0 compatibility and private reporting route. |
-| Public reporting contact | Not yet established. The owner must name a monitored contact before a packaged release; public source access is not a support SLA. |
+| Public reporting contact | Not yet established; retained as an experimental distribution limitation. A monitored contact is required before a supported production release. |
 | Source visibility | Owner authorized public repository visibility on 2026-11-03 after a reachable-history audit. |
-| Package publication | Not authorized. Cargo publish=false; no public crate, tag or release artifact upload is authorized. |
+| Package publication | Owner authorized experimental 0.2.4 crates.io publication on 2026-11-04. Cargo permits only crates-io; publication status is verified separately from technical readiness. Git tags and release-binary uploads are not included. |
 
 Public source is available for the documented experimental subset. The technical
 evidence does not imply a published crate, application acceptance or general
-Matroska support. Package-release prerequisites remain separate.
+Matroska support. Registry availability and production acceptance remain separate.
 
 ## Production decision
 
@@ -72,5 +72,6 @@ completed local pilot as a baseline. Further assurance and optimization should
 follow that risk profile; beating every competitor or implementing all Matroska
 features is not an invented prerequisite for a defined supported consumer.
 
-Crate publication separately requires the owner decisions above. Public
-repository access does not authorize a package release or general production claim.
+The owner separately authorized the first experimental crates.io publication on
+2026-11-04. That distribution decision does not change the production dispositions
+above or authorize another package version.

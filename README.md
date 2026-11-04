@@ -88,11 +88,25 @@ Checked finalization is separate from source completeness and storage durability
 
 [Design](docs/design.md) | [All contracts and API guides](docs/README.md#current-contracts)
 
+## Install
+
+Add the experimental library to your Cargo project:
+
+```toml
+[dependencies]
+unlace = "0.2.4"
+```
+
+[crates.io](https://crates.io/crates/unlace) | [API documentation](https://docs.rs/unlace/0.2.4/unlace/)
+
+Version **0.2.4** uses MIT and requires Rust **1.89** or later. There are no
+third-party Cargo dependencies. The experimental scope and production limits
+below also apply to registry installation.
+
 ## Use from source
 
-Source version **0.2.4** is public under MIT. No crate, Git release tag or binary
-release is published. Rust **1.89.0** is the pinned source toolchain. Once it is
-available, ordinary builds and tests need no codec library, model or download.
+Rust **1.89.0** is the pinned source toolchain. Once it is available, ordinary
+builds and tests need no codec library, model or download.
 
 ```sh
 git clone https://github.com/ekhodzitsky/unlace.git
@@ -154,7 +168,7 @@ consumer responsibilities.
 General production readiness is not established. Cold preparation of a new
 seekable source still misses the reference 250 ms criterion; prepared-query and
 sequential decode observations have different boundaries. A monitored public
-reporting contact and crate-publication authorization remain outstanding.
+reporting contact and production support commitment are not established.
 [Current readiness, compatibility and reporting](docs/release-readiness.md).
 
 [Documentation](docs/README.md) | [Development checks](docs/verification.md) |
