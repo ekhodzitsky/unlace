@@ -1,12 +1,12 @@
 # Release and production readiness
 
 Assessment: 2026-11-04. Dated reports retain their original source and campaign scope.
-Current source: **0.2.4, public repository, experimental package publication authorized**, under MIT. Tests and local
+Current source: **0.2.4, public repository, experimental crate published on crates.io**, under MIT. Tests and local
 qualification cover Linux x86_64 with Rust 1.89.0. This page states the current
 decision; dated methods and observations remain in the [evidence index](README.md).
 
 **Scoped go for the fixed prepared local consumer. General production readiness
-is not established. Experimental package publication is owner-authorized.**
+is not established. Experimental crate 0.2.4 is published.**
 
 ## Public distribution
 
@@ -18,7 +18,7 @@ is not established. Experimental package publication is owner-authorized.**
 | Supported scope and compatibility | The [experimental policy](experimental-scope.md) defines the supported subset, pre-1.0 compatibility and private reporting route. |
 | Public reporting contact | Not yet established; retained as an experimental distribution limitation. A monitored contact is required before a supported production release. |
 | Source visibility | Owner authorized public repository visibility on 2026-11-03 after a reachable-history audit. |
-| Package publication | Owner authorized experimental 0.2.4 crates.io publication on 2026-11-04. Cargo permits only crates-io; publication status is verified separately from technical readiness. Git tags and release-binary uploads are not included. |
+| Package publication | [Experimental crate 0.2.4](https://crates.io/crates/unlace/0.2.4) published on 2026-11-04 under owner authorization. Downloaded archive checksum/source match the verified candidate; a registry consumer runs on Rust 1.89. [Publication verification](verification.md#cratesio-publication). Git tags and release-binary uploads are not included. |
 
 Public source is available for the documented experimental subset. The technical
 evidence does not imply a published crate, application acceptance or general

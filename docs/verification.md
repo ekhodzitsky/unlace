@@ -122,3 +122,31 @@ passed all six required checks and local package verification for commit
 `3faed583d4339ea429a74c92fe66167bf5e3551a` on Ubuntu 24.04 / Rust 1.89.0.
 This records that exact revision; subsequent documentation commits are not
 implicitly included in the result.
+
+## Crates.io publication
+
+The owner-authorized first experimental package, [unlace 0.2.4](https://crates.io/crates/unlace/0.2.4),
+was published on 2026-11-04 from commit
+`db65b55f950caccf74bd1cc9c0705a20af7838a0`. All six required local Rust 1.89
+checks and a clean-checkout Cargo publication dry-run passed. The
+[candidate's manual CI run](https://github.com/ekhodzitsky/unlace/actions/runs/41791158372)
+also passed every check and local package verification for that exact commit.
+Independent review checked the complete 91-file archive, source identity,
+metadata and private-file exclusions before publication.
+
+The crates.io version metadata, downloaded archive and local verified candidate
+agree on SHA-256:
+
+```text
+350514bd4728a4a72a51f189fc20610347a9fee0b5a7205d83477b155ba97e34
+```
+
+The archive's Cargo VCS record identifies the source commit above. A separate
+Cargo project resolved the exact registry version, built and ran the EBML
+integer smoke example on Rust 1.89, then repeated successfully with offline and
+locked resolution. Its dependency graph contains only that consumer and unlace;
+the library still has zero third-party Cargo dependencies. Local source commits
+that only record this receipt are separate from the immutable published package.
+The [docs.rs API page](https://docs.rs/unlace/0.2.4/unlace/) was also verified
+available after publication. Publication does not change the
+[production assessment](release-readiness.md).

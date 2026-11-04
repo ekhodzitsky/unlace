@@ -4,13 +4,16 @@ Source milestones use SemVer. Entries do not imply a published crate or binary.
 
 ## Unreleased
 
-## 0.2.4 crates.io distribution - 2026-11-04 (publication candidate)
+## 0.2.4 crates.io distribution - 2026-11-04
 
-- Prepare the owner-authorized first experimental crates.io package of the
+- Publish the owner-authorized first experimental crates.io package of the
   existing 0.2.4 API under MIT. Restrict Cargo publication to crates-io and add
   registry dependency instructions. No library behavior or dependency changes.
 - Retain the documented supported subset, reporting limitation and general
   production no-go. Earlier source milestone dates remain historical records.
+- Verify the published archive against source commit db65b55 and its SHA-256;
+  build and run a separate registry consumer on Rust 1.89, including a locked
+  offline repeat. All required local checks and the candidate hosted CI pass.
 
 ## Post-0.2.4 source qualification and documentation
 

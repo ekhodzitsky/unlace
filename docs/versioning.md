@@ -33,3 +33,10 @@ As of 2026-11-03, local and remote Git release tags and GitHub Releases are empt
 The 0.2.4 source version and dated changelog entry do not imply a v0.2.4 tag.
 A metadata or tag audit does not authorize creating a release; keep publication
 separate from source commits and the owner-authorized public repository visibility.
+
+The first experimental [crates.io package 0.2.4](https://crates.io/crates/unlace/0.2.4)
+was published on 2026-11-04 from commit
+`db65b55f950caccf74bd1cc9c0705a20af7838a0`. Its downloaded archive matches the
+verified candidate. The earlier 2026-11-02 entry remains the source-milestone
+date; it is not the registry publication date. No Git release tag or GitHub
+Release was created. Future publications require a new owner instruction.
